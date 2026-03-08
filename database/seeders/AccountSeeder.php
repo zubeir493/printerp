@@ -1,0 +1,47 @@
+<?php
+namespace Database\Seeders;
+
+use App\Models\Account;
+use Illuminate\Database\Seeder;
+
+class AccountSeeder extends Seeder
+{
+    public function run(): void
+    {
+        $accounts = [
+            // ASSETS (1000 - 1999)
+            ['code' => '1000', 'name' => 'Cash in Hand', 'type' => 'Asset'],
+            ['code' => '1010', 'name' => 'Bank Current Account', 'type' => 'Asset'],
+            ['code' => '1200', 'name' => 'Accounts Receivable (Debtors)', 'type' => 'Asset'],
+            ['code' => '1500', 'name' => 'Inventory', 'type' => 'Asset'],
+            ['code' => '1800', 'name' => 'Office Equipment', 'type' => 'Asset'],
+
+            // LIABILITIES (2000 - 2999)
+            ['code' => '2000', 'name' => 'Accounts Payable (Creditors)', 'type' => 'Liability'],
+            ['code' => '2100', 'name' => 'VAT Payable', 'type' => 'Liability'],
+            ['code' => '2200', 'name' => 'Accrued Salaries', 'type' => 'Liability'],
+            ['code' => '2500', 'name' => 'Bank Loan', 'type' => 'Liability'],
+
+            // EQUITY (3000 - 3999)
+            ['code' => '3000', 'name' => 'Owners Capital', 'type' => 'Equity'],
+            ['code' => '3100', 'name' => 'Retained Earnings', 'type' => 'Equity'],
+
+            // REVENUE (4000 - 4999)
+            ['code' => '4000', 'name' => 'Sales Revenue', 'type' => 'Revenue'],
+            ['code' => '4100', 'name' => 'Service Income', 'type' => 'Revenue'],
+            ['code' => '4200', 'name' => 'Interest Income', 'type' => 'Revenue'],
+
+            // EXPENSES (5000 - 5999)
+            ['code' => '5000', 'name' => 'Cost of Goods Sold (COGS)', 'type' => 'Expense'],
+            ['code' => '5100', 'name' => 'Salaries & Wages', 'type' => 'Expense'],
+            ['code' => '5200', 'name' => 'Rent Expense', 'type' => 'Expense'],
+            ['code' => '5300', 'name' => 'Electricity & Water', 'type' => 'Expense'],
+            ['code' => '5400', 'name' => 'Marketing & Advertising', 'type' => 'Expense'],
+            ['code' => '5800', 'name' => 'Bank Charges', 'type' => 'Expense'],
+        ];
+
+        foreach ($accounts as $account) {
+            Account::updateOrCreate(['code' => $account['code']], $account);
+        }
+    }
+}

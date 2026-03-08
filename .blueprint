@@ -1,0 +1,90 @@
+created:
+    - database/factories/PartnerFactory.php
+    - database/factories/JobOrderFactory.php
+    - database/factories/JobOrderTaskFactory.php
+    - database/factories/DispatchFactory.php
+    - database/factories/DispatchItemFactory.php
+    - database/factories/SalesInvoiceFactory.php
+    - database/factories/SalesInvoiceItemFactory.php
+    - database/factories/PurchaseOrderFactory.php
+    - database/factories/PurchaseOrderItemFactory.php
+    - database/factories/PurchaseInvoiceFactory.php
+    - database/factories/PurchaseInvoiceItemFactory.php
+    - database/factories/PaymentFactory.php
+    - database/factories/PaymentAllocationFactory.php
+    - database/factories/WarehouseFactory.php
+    - database/factories/InventoryItemFactory.php
+    - database/factories/InventoryBalanceFactory.php
+    - database/factories/StockMovementFactory.php
+    - database/factories/StockTransferFactory.php
+    - database/factories/StockTransferItemFactory.php
+    - database/factories/AccountFactory.php
+    - database/factories/JournalEntryFactory.php
+    - database/factories/JournalItemFactory.php
+    - database/migrations/2026_02_18_112305_create_partners_table.php
+    - database/migrations/2026_02_18_112306_create_job_orders_table.php
+    - database/migrations/2026_02_18_112307_create_job_order_tasks_table.php
+    - database/migrations/2026_02_18_112308_create_dispatches_table.php
+    - database/migrations/2026_02_18_112309_create_dispatch_items_table.php
+    - database/migrations/2026_02_18_112310_create_sales_invoices_table.php
+    - database/migrations/2026_02_18_112311_create_sales_invoice_items_table.php
+    - database/migrations/2026_02_18_112312_create_purchase_orders_table.php
+    - database/migrations/2026_02_18_112313_create_purchase_order_items_table.php
+    - database/migrations/2026_02_18_112314_create_purchase_invoices_table.php
+    - database/migrations/2026_02_18_112315_create_purchase_invoice_items_table.php
+    - database/migrations/2026_02_18_112316_create_payments_table.php
+    - database/migrations/2026_02_18_112317_create_payment_allocations_table.php
+    - database/migrations/2026_02_18_112318_create_warehouses_table.php
+    - database/migrations/2026_02_18_112319_create_inventory_items_table.php
+    - database/migrations/2026_02_18_112320_create_inventory_balances_table.php
+    - database/migrations/2026_02_18_112321_create_stock_movements_table.php
+    - database/migrations/2026_02_18_112322_create_stock_transfers_table.php
+    - database/migrations/2026_02_18_112323_create_stock_transfer_items_table.php
+    - database/migrations/2026_02_18_112324_create_accounts_table.php
+    - database/migrations/2026_02_18_112325_create_journal_entries_table.php
+    - database/migrations/2026_02_18_112326_create_journal_items_table.php
+    - app/Models/Partner.php
+    - app/Models/JobOrder.php
+    - app/Models/JobOrderTask.php
+    - app/Models/Dispatch.php
+    - app/Models/DispatchItem.php
+    - app/Models/SalesInvoice.php
+    - app/Models/SalesInvoiceItem.php
+    - app/Models/PurchaseOrder.php
+    - app/Models/PurchaseOrderItem.php
+    - app/Models/PurchaseInvoice.php
+    - app/Models/PurchaseInvoiceItem.php
+    - app/Models/Payment.php
+    - app/Models/PaymentAllocation.php
+    - app/Models/Warehouse.php
+    - app/Models/InventoryItem.php
+    - app/Models/InventoryBalance.php
+    - app/Models/StockMovement.php
+    - app/Models/StockTransfer.php
+    - app/Models/StockTransferItem.php
+    - app/Models/Account.php
+    - app/Models/JournalEntry.php
+    - app/Models/JournalItem.php
+models:
+    Partner: { name: string, phone: 'string nullable', address: 'text nullable', tin_number: 'string nullable', is_supplier: 'boolean default:false', is_customer: 'boolean default:false', timestamps: timestamps, relationships: { hasMany: 'JobOrder, SalesInvoice, PurchaseOrder, PurchaseInvoice, Payment' } }
+    JobOrder: { job_order_number: 'string unique', partner_id: 'id foreign', job_type: 'enum:books,packages', submission_date: date, remarks: 'text nullable', total_price: 'decimal:12,2', status: 'enum:draft,design,production,completed,cancelled', timestamps: timestamps, relationships: { belongsTo: Partner, hasMany: 'JobOrderTask, Dispatch, SalesInvoice' } }
+    JobOrderTask: { job_order_id: 'id foreign', name: string, quantity: integer, unit_cost: 'decimal:12,2', timestamps: timestamps, relationships: { belongsTo: JobOrder } }
+    Dispatch: { job_order_id: 'id foreign', delivery_date: date, remarks: 'text nullable', timestamps: timestamps, relationships: { belongsTo: JobOrder, hasMany: DispatchItem } }
+    DispatchItem: { dispatch_id: 'id foreign', job_order_task_id: 'id foreign', quantity: integer, timestamps: timestamps, relationships: { belongsTo: 'Dispatch, JobOrderTask' } }
+    SalesInvoice: { invoice_number: 'string unique', partner_id: 'id foreign', job_order_id: 'id foreign nullable', issue_date: date, due_date: date, subtotal: 'decimal:15,2', tax_amount: 'decimal:15,2 default:0', total_amount: 'decimal:15,2', status: 'enum:draft,issued,partially_paid,paid,void', timestamps: timestamps, relationships: { belongsTo: 'Partner, JobOrder', hasMany: 'SalesInvoiceItem, PaymentAllocation' } }
+    SalesInvoiceItem: { sales_invoice_id: 'id foreign', description: string, quantity: 'decimal:12,2', unit_price: 'decimal:12,2', total: 'decimal:15,2', timestamps: timestamps, relationships: { belongsTo: SalesInvoice } }
+    PurchaseOrder: { po_number: 'string unique', partner_id: 'id foreign', order_date: date, status: 'enum:draft,approved,received,cancelled', timestamps: timestamps, relationships: { belongsTo: Partner, hasMany: 'PurchaseOrderItem, PurchaseInvoice' } }
+    PurchaseOrderItem: { purchase_order_id: 'id foreign', inventory_item_id: 'id foreign', quantity: 'decimal:12,2', unit_price: 'decimal:12,2', total: 'decimal:15,2', timestamps: timestamps, relationships: { belongsTo: 'PurchaseOrder, InventoryItem' } }
+    PurchaseInvoice: { invoice_number: string, partner_id: 'id foreign', purchase_order_id: 'id foreign nullable', issue_date: date, due_date: date, subtotal: 'decimal:15,2', tax_amount: 'decimal:15,2 default:0', total_amount: 'decimal:15,2', status: 'enum:draft,posted,partially_paid,paid,void', timestamps: timestamps, relationships: { belongsTo: 'Partner, PurchaseOrder', hasMany: 'PurchaseInvoiceItem, PaymentAllocation' } }
+    PurchaseInvoiceItem: { purchase_invoice_id: 'id foreign', inventory_item_id: 'id foreign', quantity: 'decimal:12,2', unit_price: 'decimal:12,2', total: 'decimal:15,2', timestamps: timestamps, relationships: { belongsTo: 'PurchaseInvoice, InventoryItem' } }
+    Payment: { payment_number: 'string unique', partner_id: 'id foreign', payment_date: date, amount: 'decimal:15,2', direction: 'enum:inbound,outbound', method: 'enum:cash,bank,cheque', reference: 'string nullable', timestamps: timestamps, relationships: { belongsTo: Partner, hasMany: PaymentAllocation } }
+    PaymentAllocation: { payment_id: 'id foreign', sales_invoice_id: 'id foreign nullable', purchase_invoice_id: 'id foreign nullable', allocated_amount: 'decimal:15,2', timestamps: timestamps, relationships: { belongsTo: 'Payment, SalesInvoice, PurchaseInvoice' } }
+    Warehouse: { name: string, code: 'string unique', location: 'string nullable', timestamps: timestamps, relationships: { hasMany: 'InventoryBalance, StockMovement' } }
+    InventoryItem: { name: string, sku: 'string unique', unit: string, average_cost: 'decimal:15,2 default:0', timestamps: timestamps, relationships: { hasMany: 'InventoryBalance, StockMovement' } }
+    InventoryBalance: { inventory_item_id: 'id foreign', warehouse_id: 'id foreign', quantity_on_hand: 'decimal:15,2 default:0', timestamps: timestamps, relationships: { belongsTo: 'InventoryItem, Warehouse' } }
+    StockMovement: { inventory_item_id: 'id foreign', warehouse_id: 'id foreign', type: 'enum:purchase,consumption,transfer_in,transfer_out,adjustment', reference_type: 'string nullable', reference_id: 'unsignedBigInteger nullable', quantity: 'decimal:15,2', unit_cost: 'decimal:15,2 nullable', total_cost: 'decimal:15,2 nullable', movement_date: date, timestamps: timestamps, relationships: { belongsTo: 'InventoryItem, Warehouse' } }
+    StockTransfer: { transfer_number: 'string unique', from_warehouse_id: id, to_warehouse_id: id, transfer_date: date, status: 'enum:draft,completed,cancelled', timestamps: timestamps }
+    StockTransferItem: { stock_transfer_id: 'id foreign', inventory_item_id: 'id foreign', quantity: 'decimal:15,2', timestamps: timestamps, relationships: { belongsTo: 'StockTransfer, InventoryItem' } }
+    Account: { name: string, code: 'string unique', type: 'enum:Asset,Liability,Equity,Revenue,Expense', timestamps: timestamps, relationships: { hasMany: JournalItem } }
+    JournalEntry: { date: date, reference: string, source_type: 'string nullable', source_id: 'unsignedBigInteger nullable', narration: 'text nullable', total_debit: 'decimal:15,2', total_credit: 'decimal:15,2', status: 'enum:draft,posted,void', posted_at: 'datetime nullable', voided_at: 'datetime nullable', timestamps: timestamps, relationships: { hasMany: JournalItem } }
+    JournalItem: { journal_entry_id: 'id foreign', account_id: 'id foreign', debit: 'decimal:15,2 default:0', credit: 'decimal:15,2 default:0', timestamps: timestamps, relationships: { belongsTo: 'JournalEntry, Account' } }

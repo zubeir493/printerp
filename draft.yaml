@@ -1,0 +1,316 @@
+models:
+
+  Partner:
+    name: string
+    phone: string nullable
+    address: text nullable
+    tin_number: string nullable
+    is_supplier: boolean default:false
+    is_customer: boolean default:false
+    timestamps: true
+    relationships:
+      hasMany: JobOrder, SalesInvoice, PurchaseOrder, PurchaseInvoice, Payment
+
+
+  JobOrder:
+    job_order_number: string unique
+    partner_id: id foreign
+    warehouse_id: id foreign nullable
+    job_type: enum:books,packages
+    submission_date: date
+    remarks: text nullable
+    total_price: decimal:12,2
+    advance_paid: boolean default:true
+    advance_amount: decimal:15,2 default:0
+    cost_calc_file: string nullable
+    production_started_at: timestamp nullable
+    materials_fully_issued_at: timestamp nullable
+    consumed_at: timestamp nullable
+    status: enum:draft,design,production,completed,cancelled
+    services: json nullable
+    timestamps: true
+    relationships:
+      belongsTo: Partner, Warehouse
+      hasMany: JobOrderTask, Dispatch, SalesInvoice, Artwork
+
+
+  JobOrderTask:
+    job_order_id: id foreign
+    name: string
+    quantity: integer
+    unit_cost: decimal:12,2
+    paper: json nullable
+    timestamps: true
+    relationships:
+      belongsTo: JobOrder
+
+
+  Artwork:
+    job_order_id: id foreign
+    filename: string
+    is_approved: boolean default:false
+    uploaded_by: id foreign:users nullable
+    timestamps: true
+    relationships:
+      belongsTo: JobOrder, User
+
+
+  Dispatch:
+    job_order_id: id foreign
+    delivery_date: date
+    remarks: text nullable
+    timestamps: true
+    relationships:
+      belongsTo: JobOrder
+      hasMany: DispatchItem
+
+
+  DispatchItem:
+    dispatch_id: id foreign
+    job_order_task_id: id foreign
+    quantity: integer
+    timestamps: true
+    relationships:
+      belongsTo: Dispatch, JobOrderTask
+
+
+  # =========================
+  # SALES
+  # =========================
+
+  SalesInvoice:
+    invoice_number: string unique
+    partner_id: id foreign
+    job_order_id: id foreign nullable
+    issue_date: date
+    due_date: date
+    subtotal: decimal:15,2
+    tax_amount: decimal:15,2 default:0
+    total_amount: decimal:15,2
+    status: enum:draft,issued,partially_paid,paid,void
+    timestamps: true
+    relationships:
+      belongsTo: Partner, JobOrder
+      hasMany: SalesInvoiceItem, PaymentAllocation
+
+
+  SalesInvoiceItem:
+    sales_invoice_id: id foreign
+    description: string
+    quantity: decimal:12,2
+    unit_price: decimal:12,2
+    total: decimal:15,2
+    timestamps: true
+    relationships:
+      belongsTo: SalesInvoice
+
+
+  # =========================
+  # PURCHASES
+  # =========================
+
+  PurchaseOrder:
+    po_number: string unique
+    partner_id: id foreign
+    order_date: date
+    subtotal: decimal:15,2 nullable
+    status: enum:draft,approved,received,cancelled
+    timestamps: true
+    relationships:
+      belongsTo: Partner
+      hasMany: PurchaseOrderItem, PurchaseInvoice, GoodsReceipt
+
+
+  PurchaseOrderItem:
+    purchase_order_id: id foreign
+    inventory_item_id: id foreign
+    quantity: decimal:12,2
+    unit_price: decimal:12,2
+    total: decimal:15,2
+    received_quantity: decimal:15,2 default:0
+    timestamps: true
+    relationships:
+      belongsTo: PurchaseOrder, InventoryItem
+
+
+  PurchaseInvoice:
+    invoice_number: string
+    partner_id: id foreign
+    purchase_order_id: id foreign nullable
+    issue_date: date
+    due_date: date
+    subtotal: decimal:15,2
+    tax_amount: decimal:15,2 default:0
+    total_amount: decimal:15,2
+    status: enum:draft,posted,partially_paid,paid,void
+    timestamps: true
+    relationships:
+      belongsTo: Partner, PurchaseOrder
+      hasMany: PurchaseInvoiceItem, PaymentAllocation
+
+
+  PurchaseInvoiceItem:
+    purchase_invoice_id: id foreign
+    inventory_item_id: id foreign
+    quantity: decimal:12,2
+    unit_price: decimal:12,2
+    total: decimal:15,2
+    timestamps: true
+    relationships:
+      belongsTo: PurchaseInvoice, InventoryItem
+
+
+  GoodsReceipt:
+    receipt_number: string unique
+    purchase_order_id: id foreign
+    warehouse_id: id foreign nullable
+    receipt_date: date
+    status: enum:draft,posted
+    posted_at: datetime nullable
+    timestamps: true
+    relationships:
+      belongsTo: PurchaseOrder, Warehouse
+      hasMany: GoodsReceiptItem
+
+
+  GoodsReceiptItem:
+    goods_receipt_id: id foreign
+    purchase_order_item_id: id foreign
+    quantity_received: decimal:12,2
+    timestamps: true
+    relationships:
+      belongsTo: GoodsReceipt, PurchaseOrderItem
+
+
+  # =========================
+  # PAYMENTS
+  # =========================
+
+  Payment:
+    payment_number: string unique
+    partner_id: id foreign
+    payment_date: date
+    amount: decimal:15,2
+    direction: enum:inbound,outbound
+    method: enum:cash,bank,cheque
+    reference: string nullable
+    timestamps: true
+    relationships:
+      belongsTo: Partner
+      hasMany: PaymentAllocation
+
+
+  PaymentAllocation:
+    payment_id: id foreign
+    sales_invoice_id: id foreign nullable
+    purchase_invoice_id: id foreign nullable
+    allocated_amount: decimal:15,2
+    timestamps: true
+    relationships:
+      belongsTo: Payment, SalesInvoice, PurchaseInvoice
+
+
+  # =========================
+  # WAREHOUSES & INVENTORY
+  # =========================
+
+  Warehouse:
+    name: string
+    code: string unique
+    location: string nullable
+    timestamps: true
+    relationships:
+      hasMany: InventoryBalance, StockMovement, JobOrder, GoodsReceipt
+
+
+  InventoryItem:
+    name: string
+    sku: string unique
+    unit: string
+    purchase_unit: string nullable
+    conversion_factor: decimal:12,4 nullable
+    average_cost: decimal:15,2 default:0
+    timestamps: true
+    relationships:
+      hasMany: InventoryBalance, StockMovement
+
+
+  InventoryBalance:
+    inventory_item_id: id foreign
+    warehouse_id: id foreign
+    quantity_on_hand: decimal:15,2 default:0
+    timestamps: true
+    relationships:
+      belongsTo: InventoryItem, Warehouse
+
+
+  StockMovement:
+    inventory_item_id: id foreign
+    warehouse_id: id foreign
+    type: enum:purchase,consumption,transfer_in,transfer_out,adjustment,material_issue,material_return
+    reference_type: string nullable
+    reference_id: unsignedBigInteger nullable
+    quantity: decimal:15,2
+    unit_cost: decimal:15,2 nullable
+    total_cost: decimal:15,2 nullable
+    movement_date: date
+    timestamps: true
+    relationships:
+      belongsTo: InventoryItem, Warehouse
+
+
+  StockTransfer:
+    transfer_number: string unique
+    from_warehouse_id: id
+    to_warehouse_id: id
+    transfer_date: date
+    status: enum:draft,completed,cancelled
+    timestamps: true
+
+
+  StockTransferItem:
+    stock_transfer_id: id foreign
+    inventory_item_id: id foreign
+    quantity: decimal:15,2
+    timestamps: true
+    relationships:
+      belongsTo: StockTransfer, InventoryItem
+
+
+  # =========================
+  # ACCOUNTING
+  # =========================
+
+  Account:
+    name: string
+    code: string unique
+    type: enum:Asset,Liability,Equity,Revenue,Expense
+    timestamps: true
+    relationships:
+      hasMany: JournalItem
+
+
+  JournalEntry:
+    date: date
+    reference: string
+    source_type: string nullable
+    source_id: unsignedBigInteger nullable
+    narration: text nullable
+    total_debit: decimal:15,2
+    total_credit: decimal:15,2
+    status: enum:draft,posted,void
+    posted_at: datetime nullable
+    voided_at: datetime nullable
+    timestamps: true
+    relationships:
+      hasMany: JournalItem
+
+
+  JournalItem:
+    journal_entry_id: id foreign
+    account_id: id foreign
+    debit: decimal:15,2 default:0
+    credit: decimal:15,2 default:0
+    timestamps: true
+    relationships:
+      belongsTo: JournalEntry, Account
