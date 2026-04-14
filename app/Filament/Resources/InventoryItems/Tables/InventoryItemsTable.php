@@ -19,16 +19,15 @@ class InventoryItemsTable
                 TextColumn::make('sku'),
                 TextColumn::make('type')
                     ->badge()
-                    ->color(fn (string $state): string => match ($state) {
+                    ->color(fn(string $state): string => match ($state) {
                         'raw_material' => 'gray',
                         'finished_good' => 'success',
                         default => 'gray',
                     }),
-                IconColumn::make('is_sellable')
-                    ->boolean()
-                    ->label('Sellable'),
                 TextColumn::make('unit'),
-                TextColumn::make('average_cost')->suffix(' Birr')
+                TextColumn::make('price')
+                    ->label('Price / Value')
+                    ->suffix(' Birr')
             ])
             ->filters([
                 //
@@ -36,9 +35,15 @@ class InventoryItemsTable
             ->recordActions([
                 EditAction::make(),
             ])
-            ->toolbarActions([
+            ->headerActions([
+                \Filament\Actions\ExportAction::make()
+                    ->exporter(\App\Filament\Exports\InventoryItemExporter::class)
+            ])
+            ->bulkActions([
                 BulkActionGroup::make([
                     DeleteBulkAction::make(),
+                    \Filament\Actions\ExportBulkAction::make()
+                        ->exporter(\App\Filament\Exports\InventoryItemExporter::class)
                 ]),
             ]);
     }

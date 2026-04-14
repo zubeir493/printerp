@@ -25,15 +25,19 @@ class PurchaseOrderResource extends Resource
         return PurchaseOrderForm::configure($schema);
     }
 
+
+
     public static function table(Table $table): Table
     {
-        return PurchaseOrdersTable::configure($table);
+        return PurchaseOrdersTable::configure($table)
+            ->recordUrl(fn($record) => static::getUrl('view', ['record' => $record]));
     }
 
     public static function getRelations(): array
     {
         return [
             \App\Filament\Resources\PurchaseOrders\RelationManagers\PaymentsRelationManager::class,
+            \App\Filament\Resources\PurchaseOrders\RelationManagers\GoodsReceiptsRelationManager::class,
         ];
     }
 
@@ -42,6 +46,7 @@ class PurchaseOrderResource extends Resource
         return [
             'index' => ListPurchaseOrders::route('/'),
             'create' => CreatePurchaseOrder::route('/create'),
+            'view' => \App\Filament\Resources\PurchaseOrders\Pages\ViewPurchaseOrder::route('/{record}'),
             'edit' => EditPurchaseOrder::route('/{record}/edit'),
         ];
     }

@@ -41,12 +41,17 @@ class JournalEntriesTable
                 //
             ])
             ->recordActions([
-                ViewAction::make(),
                 EditAction::make(),
             ])
-            ->toolbarActions([
+            ->headerActions([
+                \Filament\Actions\ExportAction::make()
+                    ->exporter(\App\Filament\Exports\JournalEntryExporter::class)
+            ])
+            ->bulkActions([
                 BulkActionGroup::make([
                     DeleteBulkAction::make(),
+                    \Filament\Actions\ExportBulkAction::make()
+                        ->exporter(\App\Filament\Exports\JournalEntryExporter::class)
                 ]),
             ]);
     }

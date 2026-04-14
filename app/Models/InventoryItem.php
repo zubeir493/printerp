@@ -21,9 +21,9 @@ class InventoryItem extends Model
         'unit',
         'purchase_unit',
         'conversion_factor',
-        'average_cost',
         'type',
         'is_sellable',
+        'price',
     ];
 
     /**
@@ -35,8 +35,8 @@ class InventoryItem extends Model
     {
         return [
             'id' => 'integer',
-            'average_cost' => 'decimal:2',
             'is_sellable' => 'boolean',
+            'price' => 'decimal:2',
         ];
     }
 

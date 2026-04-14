@@ -10,11 +10,18 @@ use Filament\Tables;
 use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Table;
 use Filament\Pages\Page;
+use Filament\Support\Icons\Heroicon;
 use App\Models\InventoryBalance;
+
+use BackedEnum;
+use Filament\Tables\Columns\TextColumn;
 
 class StockOverview extends Page implements HasForms, HasTable
 {
+    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedPresentationChartLine;
+
     protected string $view = 'filament.pages.stock-overview';
+
 
     use Forms\Concerns\InteractsWithForms;
     use Tables\Concerns\InteractsWithTable;
@@ -49,48 +56,59 @@ class StockOverview extends Page implements HasForms, HasTable
                     ->where('quantity_on_hand', '>', 0);
             })
             ->columns([
-                Tables\Columns\TextColumn::make('inventoryItem.name')
+                TextColumn::make('inventoryItem.name')
                     ->label('Item')
                     ->searchable()
                     ->sortable(),
 
-                Tables\Columns\TextColumn::make('quantity_on_hand')
+                TextColumn::make('quantity_on_hand')
                     ->label('Quantity')
-                    ->formatStateUsing(
-                        fn($state, $record) =>
-                        number_format($state) . ' ' . $record->inventoryItem->unit
-                    )
+                    ->formatStateUsing(function ($state, $record) {
+                        $item = $record->inventoryItem;
+
+                        if (!$item) {
+                            return number_format($state);
+                        }
+
+                        $type = $item->type instanceof \BackedEnum ? $item->type->value : (string)$item->type;
+                        $isRawMaterial = strtolower($type) === 'raw_material'
+                            || ($item->purchase_unit && $item->conversion_factor > 0);
+
+                        if ($isRawMaterial && $item->purchase_unit && $item->conversion_factor > 0) {
+                            $convertedQuantity = (float)$state / (float)$item->conversion_factor;
+                            return number_format($convertedQuantity, 2) . ' ' . $item->purchase_unit;
+                        }
+
+                        return number_format($state) . ' ' . $item->unit;
+                    })
                     ->sortable(),
 
-                Tables\Columns\TextColumn::make('inventoryItem.average_cost')
-                    ->money('ETB')
-                    ->label('Avg Cost'),
-
-                Tables\Columns\TextColumn::make('total_value')
+                TextColumn::make('total_value')
                     ->state(
                         fn($record) =>
                         (float)$record->quantity_on_hand *
-                            (float)($record->inventoryItem->average_cost ?? 0)
+                            (float)($record->inventoryItem->price ?? 0)
                     )
-                    ->money('ETB')
+                    ->suffix(' Birr')
                     ->color('success')
-                    ->label('Total Value'),
+                    ->label('Total Value')
+                    ->summarize(
+                        Tables\Columns\Summarizers\Summarizer::make()
+                            ->label('Total Warehouse Value')
+                            ->using(
+                                fn($query) =>
+                                (float) $query->join('inventory_items', 'inventory_items.id', '=', 'inventory_balances.inventory_item_id')
+                                    ->sum(\Illuminate\Support\Facades\DB::raw('inventory_balances.quantity_on_hand * inventory_items.price'))
+                            )
+                            ->numeric()
+                    ),
+            ])
+            ->headerActions([
+                \Filament\Actions\ExportAction::make()
+                    ->exporter(\App\Filament\Exports\InventoryBalanceExporter::class)
             ])
             ->emptyStateHeading('Selected warehouse is empty')
             ->emptyStateDescription('This warehouse currently has no inventory.')
             ->defaultSort('inventoryItem.name');
-    }
-
-
-    public function getTotalValueProperty()
-    {
-        return InventoryBalance::query()
-            ->when(
-                $this->warehouse_id,
-                fn($query) => $query->where('warehouse_id', $this->warehouse_id)
-            )
-            ->where('quantity_on_hand', '>', 0)
-            ->get()
-            ->sum(fn($balance) => (float)$balance->quantity_on_hand * (float)($balance->inventoryItem->average_cost ?? 0));
     }
 }

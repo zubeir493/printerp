@@ -20,7 +20,7 @@ class StockMovementResource extends Resource
 {
     protected static ?string $model = StockMovement::class;
 
-    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
+    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedArrowsRightLeft;
 
     public static function form(Schema $schema): Schema
     {
@@ -32,14 +32,12 @@ class StockMovementResource extends Resource
     //     return false;
     // }
 
-    public static function infolist(Schema $schema): Schema
-    {
-        return StockMovementInfolist::configure($schema);
-    }
+
 
     public static function table(Table $table): Table
     {
-        return StockMovementsTable::configure($table);
+        return StockMovementsTable::configure($table)
+            ->recordUrl(fn($record) => static::getUrl('view', ['record' => $record]));
     }
 
     public static function getRelations(): array

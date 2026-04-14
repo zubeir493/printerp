@@ -18,7 +18,7 @@ class PaymentResource extends Resource
 {
     protected static ?string $model = Payment::class;
 
-    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
+    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedBanknotes;
 
     public static function form(Schema $schema): Schema
     {
@@ -27,7 +27,8 @@ class PaymentResource extends Resource
 
     public static function table(Table $table): Table
     {
-        return PaymentsTable::configure($table);
+        return PaymentsTable::configure($table)
+            ->recordUrl(fn($record) => static::getUrl('view', ['record' => $record]));
     }
 
     public static function getRelations(): array
@@ -42,6 +43,7 @@ class PaymentResource extends Resource
         return [
             'index' => ListPayments::route('/'),
             'create' => CreatePayment::route('/create'),
+            'view' => \App\Filament\Resources\Payments\Pages\ViewPayment::route('/{record}'),
             'edit' => EditPayment::route('/{record}/edit'),
         ];
     }

@@ -46,4 +46,14 @@ class PaymentAllocation extends Model
     {
         return $this->morphTo();
     }
+
+    public function getDocumentNumberAttribute(): ?string
+    {
+        return match (class_basename($this->allocatable_type ?? '')) {
+            'JobOrder'      => $this->allocatable?->job_order_number,
+            'PurchaseOrder' => $this->allocatable?->po_number,
+            'SalesOrder'    => $this->allocatable?->order_number,
+            default         => $this->allocatable_id ? "#{$this->allocatable_id}" : null,
+        };
+    }
 }

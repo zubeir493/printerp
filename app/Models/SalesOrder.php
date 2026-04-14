@@ -62,6 +62,14 @@ class SalesOrder extends Model
         return (float) ($this->total - $this->paid_amount);
     }
 
+    public function recalculateTotal(): void
+    {
+        $this->updateQuietly([
+            'total' => (float) $this->salesOrderItems()->sum('total'),
+            'subtotal' => (float) $this->salesOrderItems()->sum('total'),
+        ]);
+    }
+
     protected static function booted()
     {
         static::creating(function ($salesOrder) {
@@ -74,30 +82,40 @@ class SalesOrder extends Model
 
         static::updating(function ($salesOrder) {
             if ($salesOrder->isDirty('status') && $salesOrder->status === 'completed') {
-
                 // Validate sufficient stock
                 foreach ($salesOrder->salesOrderItems as $item) {
                     $balance = \App\Models\InventoryBalance::where('inventory_item_id', $item->inventory_item_id)
                         ->where('warehouse_id', $salesOrder->warehouse_id)
                         ->first();
-                    $qty = $balance ? $balance->quantity_on_hand : 0;
-                    if ($qty < $item->quantity) {
+                    $qty = $balance ? (float)$balance->quantity_on_hand : 0;
+                    if ($qty < (float)$item->quantity) {
                         $itemName = $item->inventoryItem ? $item->inventoryItem->name : 'Unknown Item';
                         throw new \Exception("Insufficient stock for item {$itemName}. Available: {$qty}, Required: {$item->quantity}");
                     }
                 }
+            }
+        });
 
-                // Stock movements remain in updating hook
+        static::updated(function ($salesOrder) {
+            if ($salesOrder->wasChanged('status') && $salesOrder->status === 'completed') {
                 foreach ($salesOrder->salesOrderItems as $item) {
-                    \App\Models\StockMovement::create([
-                        'inventory_item_id' => $item->inventory_item_id,
-                        'warehouse_id' => $salesOrder->warehouse_id,
-                        'type' => 'sale',
-                        'reference_type' => 'SalesOrder',
-                        'reference_id' => $salesOrder->id,
-                        'quantity' => -abs($item->quantity),
-                        'movement_date' => now(),
-                    ]);
+                    // Prevent duplicate movements
+                    $exists = StockMovement::where('reference_type', self::class)
+                        ->where('reference_id', $salesOrder->id)
+                        ->where('inventory_item_id', $item->inventory_item_id)
+                        ->exists();
+
+                    if (!$exists) {
+                        \App\Models\StockMovement::create([
+                            'inventory_item_id' => $item->inventory_item_id,
+                            'warehouse_id' => $salesOrder->warehouse_id,
+                            'type' => 'sale',
+                            'reference_type' => self::class,
+                            'reference_id' => $salesOrder->id,
+                            'quantity' => -abs($item->quantity),
+                            'movement_date' => now(),
+                        ]);
+                    }
                 }
             }
         });

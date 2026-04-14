@@ -5,6 +5,8 @@ namespace App\Filament\Resources\InventoryItems\Schemas;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
+use Filament\Forms\Get;
+use Filament\Schemas\Components\Utilities\Get as UtilitiesGet;
 use Filament\Schemas\Schema;
 
 class InventoryItemForm
@@ -19,25 +21,29 @@ class InventoryItemForm
                 TextInput::make('sku')
                     ->required()
                     ->unique(ignoreRecord: true),
-                TextInput::make('unit')
-                    ->label('Base Unit')
-                    ->required(),
-                TextInput::make('purchase_unit')
-                    ->label('Purchase Unit'),
-                TextInput::make('conversion_factor')
-                    ->numeric(),
-                TextInput::make('average_cost')
-                    ->numeric()
-                    ->disabled()
-                    ->suffix('Birr')
-                    ->default(0),
                 Select::make('type')
                     ->options([
                         'raw_material' => 'Raw Material',
                         'finished_good' => 'Finished Good',
                     ])
                     ->required()
-                    ->default('raw_material'),
+                    ->default('raw_material')
+                    ->live(),
+                TextInput::make('price')
+                    ->label('Price / Value')
+                    ->helperText('Selling price for finished goods, or stock value per unit for raw materials.')
+                    ->numeric()
+                    ->required()
+                    ->suffix('Birr'),
+                TextInput::make('unit')
+                    ->label('Base Unit')
+                    ->required(),
+                TextInput::make('purchase_unit')
+                    ->label('Purchase Unit')
+                    ->hidden(fn($get) => $get('type') !== 'raw_material'),
+                TextInput::make('conversion_factor')
+                    ->numeric()
+                    ->hidden(fn($get) => $get('type') !== 'raw_material'),
                 Toggle::make('is_sellable')
                     ->label('Is Sellable')
                     ->default(false),

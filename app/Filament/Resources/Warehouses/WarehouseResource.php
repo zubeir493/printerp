@@ -26,9 +26,12 @@ class WarehouseResource extends Resource
         return WarehouseForm::configure($schema);
     }
 
+
+
     public static function table(Table $table): Table
     {
-        return WarehousesTable::configure($table);
+        return WarehousesTable::configure($table)
+            ->recordUrl(fn($record) => static::getUrl('view', ['record' => $record]));
     }
 
     public static function getRelations(): array
@@ -43,6 +46,7 @@ class WarehouseResource extends Resource
         return [
             'index' => ListWarehouses::route('/'),
             'create' => CreateWarehouse::route('/create'),
+            'view' => \App\Filament\Resources\Warehouses\Pages\ViewWarehouse::route('/{record}'),
             'edit' => EditWarehouse::route('/{record}/edit'),
         ];
     }

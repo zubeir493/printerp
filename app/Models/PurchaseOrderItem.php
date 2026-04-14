@@ -6,6 +6,10 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+use App\Observers\PurchaseOrderItemObserver;
+use Illuminate\Database\Eloquent\Attributes\ObservedBy;
+
+#[ObservedBy(PurchaseOrderItemObserver::class)]
 class PurchaseOrderItem extends Model
 {
     use HasFactory;
@@ -19,8 +23,10 @@ class PurchaseOrderItem extends Model
         'purchase_order_id',
         'inventory_item_id',
         'quantity',
+        'received_quantity',
         'unit_price',
         'total',
+        'status',
     ];
 
     /**
@@ -35,6 +41,7 @@ class PurchaseOrderItem extends Model
             'purchase_order_id' => 'integer',
             'inventory_item_id' => 'integer',
             'quantity' => 'decimal:2',
+            'received_quantity' => 'decimal:2',
             'unit_price' => 'decimal:2',
             'total' => 'decimal:2',
         ];

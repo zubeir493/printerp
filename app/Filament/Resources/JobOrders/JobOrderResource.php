@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\JobOrders;
 
+use App\Filament\Resources\JobOrders\Pages;
 use App\Filament\Resources\JobOrders\Pages\CreateJobOrder;
 use App\Filament\Resources\JobOrders\Pages\EditJobOrder;
 use App\Filament\Resources\JobOrders\Pages\ListJobOrders;
@@ -14,46 +15,43 @@ use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Illuminate\Support\Facades\Auth;
 
 class JobOrderResource extends Resource
 {
     protected static ?string $model = JobOrder::class;
 
-    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedDocumentText;
+    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedBriefcase;
 
     public static function form(Schema $schema): Schema
     {
         return JobOrderForm::configure($schema);
     }
 
+
+
     public static function table(Table $table): Table
     {
         return JobOrdersTable::configure($table)
-            ->columns([
-                Tables\Columns\TextColumn::make('job_order_number')->searchable()->sortable(),
-                Tables\Columns\TextColumn::make('partner.name')->searchable()->sortable(),
-                Tables\Columns\TextColumn::make('status')
-                    ->badge()
-                    ->color(fn(string $state): string => match ($state) {
-                        'draft' => 'gray',
-                        'design' => 'info',
-                        'production' => 'warning',
-                        'completed' => 'success',
-                        'cancelled' => 'danger',
-                    }),
-                Tables\Columns\TextColumn::make('total_price')->suffix(' Birr'),
-                Tables\Columns\IconColumn::make('advance_paid')
-                    ->boolean()
-                    ->label('Adv. Paid'),
-            ]);
+            ->recordUrl(fn($record) => static::getUrl('view', ['record' => $record]));
     }
 
     public static function getRelations(): array
     {
-        return [
+        $relations = [
+            \App\Filament\Resources\JobOrders\RelationManagers\MaterialsOverviewRelationManager::class,
             \App\Filament\Resources\JobOrders\RelationManagers\ArtworksRelationManager::class,
-            \App\Filament\Resources\JobOrders\RelationManagers\PaymentsRelationManager::class,
         ];
+
+        if (Auth::check() && in_array(Auth::user()->role, [
+            \App\UserRole::Admin,
+            \App\UserRole::Operations,
+            \App\UserRole::Finance,
+        ])) {
+            $relations[] = \App\Filament\Resources\JobOrders\RelationManagers\PaymentsRelationManager::class;
+        }
+
+        return $relations;
     }
 
     public static function getPages(): array
@@ -61,6 +59,7 @@ class JobOrderResource extends Resource
         return [
             'index' => ListJobOrders::route('/'),
             'create' => CreateJobOrder::route('/create'),
+            'view' => Pages\ViewJobOrder::route('/{record}'),
             'edit' => EditJobOrder::route('/{record}/edit'),
         ];
     }

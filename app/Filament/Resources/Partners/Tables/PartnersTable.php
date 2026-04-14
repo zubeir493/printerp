@@ -30,9 +30,15 @@ class PartnersTable
             ->recordActions([
                 EditAction::make(),
             ])
-            ->toolbarActions([
+            ->headerActions([
+                \Filament\Actions\ExportAction::make()
+                    ->exporter(\App\Filament\Exports\PartnerExporter::class)
+            ])
+            ->bulkActions([
                 BulkActionGroup::make([
                     DeleteBulkAction::make(),
+                    \Filament\Actions\ExportBulkAction::make()
+                        ->exporter(\App\Filament\Exports\PartnerExporter::class)
                 ]),
             ]);
     }

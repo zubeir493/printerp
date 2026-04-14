@@ -21,6 +21,14 @@ class StockMovementsTable
                 TextColumn::make('warehouse.name')
                     ->searchable(),
                 TextColumn::make('type')
+                    ->badge()
+                    ->color(fn(string $state): string => match ($state) {
+                        'purchase', 'transfer_in', 'material_return' => 'success',
+                        'production_output' => 'info',
+                        'transfer_out', 'consumption' => 'danger',
+                        'adjustment' => 'gray',
+                        default => 'gray',
+                    })
                     ->searchable(),
                 TextColumn::make('quantity')
                     ->numeric()
@@ -30,15 +38,29 @@ class StockMovementsTable
                     ->sortable(),
             ])
             ->filters([
-                //
+                \Filament\Tables\Filters\SelectFilter::make('type')
+                    ->options([
+                        'purchase' => 'Purchase',
+                        'consumption' => 'Consumption',
+                        'transfer_in' => 'Transfer In',
+                        'transfer_out' => 'Transfer Out',
+                        'adjustment' => 'Adjustment',
+                        'material_return' => 'Material Return',
+                        'production_output' => 'Production Output',
+                    ]),
             ])
             ->recordActions([
-                ViewAction::make(),
                 EditAction::make(),
             ])
-            ->toolbarActions([
+            ->headerActions([
+                \Filament\Actions\ExportAction::make()
+                    ->exporter(\App\Filament\Exports\StockMovementExporter::class)
+            ])
+            ->bulkActions([
                 BulkActionGroup::make([
                     DeleteBulkAction::make(),
+                    \Filament\Actions\ExportBulkAction::make()
+                        ->exporter(\App\Filament\Exports\StockMovementExporter::class)
                 ]),
             ]);
     }

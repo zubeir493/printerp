@@ -26,9 +26,12 @@ class PartnerResource extends Resource
         return PartnerForm::configure($schema);
     }
 
+
+
     public static function table(Table $table): Table
     {
-        return PartnersTable::configure($table);
+        return PartnersTable::configure($table)
+            ->recordUrl(fn($record) => static::getUrl('view', ['record' => $record]));
     }
 
     public static function getRelations(): array
@@ -43,6 +46,7 @@ class PartnerResource extends Resource
         return [
             'index' => ListPartners::route('/'),
             'create' => CreatePartner::route('/create'),
+            'view' => \App\Filament\Resources\Partners\Pages\ViewPartner::route('/{record}'),
             'edit' => EditPartner::route('/{record}/edit'),
         ];
     }

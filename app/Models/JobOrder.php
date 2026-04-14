@@ -82,6 +82,11 @@ class JobOrder extends Model
         return $this->hasMany(JobOrderOutput::class);
     }
 
+    public function materialMovements(): MorphMany
+    {
+        return $this->morphMany(StockMovement::class, 'reference');
+    }
+
     public function paymentAllocations(): MorphMany
     {
         return $this->morphMany(PaymentAllocation::class, 'allocatable');
@@ -97,6 +102,23 @@ class JobOrder extends Model
         return (float) ($this->total_price - $this->paid_amount);
     }
 
+    public function scopePendingPayment($query)
+    {
+        return $query->whereRaw('total_price > (SELECT COALESCE(SUM(allocated_amount), 0) FROM payment_allocations WHERE allocatable_id = job_orders.id AND allocatable_type = ?)', [self::class]);
+    }
+
+    public function scopeFullyPaid($query)
+    {
+        return $query->whereRaw('total_price <= (SELECT COALESCE(SUM(allocated_amount), 0) FROM payment_allocations WHERE allocatable_id = job_orders.id AND allocatable_type = ?)', [self::class]);
+    }
+
+    public function recalculateTotal(): void
+    {
+        $this->updateQuietly([
+            'total_price' => (float) $this->jobOrderTasks()->sum('unit_cost'),
+        ]);
+    }
+
     public function canStartProduction(): bool
     {
         if ($this->artworks()->count() === 0) {
@@ -110,22 +132,29 @@ class JobOrder extends Model
 
     public function issuedQuantityFor($itemId): float
     {
-        $movements = StockMovement::where(function ($query) {
-            $query->where('type', 'material_issue')
+        $sum = (float) StockMovement::where(function ($query) {
+            $query->where('type', 'consumption')
                 ->orWhere('type', 'material_return');
         })
-            ->whereIn('reference_type', ['material_issue', 'material_return'])
             ->where('reference_id', $this->id)
             ->where('inventory_item_id', $itemId)
-            ->get();
+            ->sum('quantity');
 
-        $net = 0;
+        return round(abs($sum), 4);
+    }
 
-        foreach ($movements as $movement) {
-            $net += $movement->quantity;
-        }
-
-        return abs($net);
+    public function issuedBalanceByWarehouse(): \Illuminate\Support\Collection
+    {
+        return StockMovement::where(function ($query) {
+                $query->where('type', 'consumption')
+                    ->orWhere('type', 'material_return');
+            })
+            ->where('reference_id', $this->id)
+            ->select('warehouse_id', 'inventory_item_id')
+            ->selectRaw('SUM(quantity) as net_quantity')
+            ->groupBy('warehouse_id', 'inventory_item_id')
+            ->get()
+            ->groupBy('warehouse_id');
     }
 
     public function overConsumedQuantity($itemId): float
@@ -169,18 +198,27 @@ class JobOrder extends Model
     public function getMaterialsSummaryAttribute(): array
     {
         $summary = [];
-        $uniqueMaterials = $this->jobOrderTasks->flatMap->paper->pluck('inventory_item_id')->unique();
+        
+        if (!$this->relationLoaded('jobOrderTasks')) {
+            $this->load('jobOrderTasks');
+        }
+
+        $uniqueMaterials = $this->jobOrderTasks->flatMap->paper->pluck('inventory_item_id')->unique()->filter();
 
         foreach ($uniqueMaterials as $itemId) {
             $item = \App\Models\InventoryItem::find($itemId);
             if (!$item) continue;
 
-            $required = $this->jobOrderTasks->flatMap->paper
+            $required = (float) $this->jobOrderTasks->flatMap->paper
                 ->where('inventory_item_id', $itemId)
                 ->sum(fn($p) => ($p['required_quantity'] ?? 0) + ($p['reserve_quantity'] ?? 0));
 
             $issued = $this->issuedQuantityFor($itemId);
-            $overconsumed = $this->overConsumedQuantity($itemId);
+            $required = (float) $this->jobOrderTasks->flatMap->paper
+                ->where('inventory_item_id', $itemId)
+                ->sum(fn($p) => ($p['required_quantity'] ?? 0) + ($p['reserve_quantity'] ?? 0));
+
+            $overconsumed = max(0, $issued - $required);
             $remaining = max(0, $required - $issued);
             $completion = $required > 0 ? min(100, ($issued / $required) * 100) : 0;
 
@@ -199,6 +237,17 @@ class JobOrder extends Model
 
     protected static function booted()
     {
+        static::creating(function ($jobOrder) {
+            if (!$jobOrder->job_order_number) {
+                $lastJobOrder = static::orderBy('id', 'desc')->first();
+                $lastNumber = 0;
+                if ($lastJobOrder && preg_match('/JO-(\d+)/', $lastJobOrder->job_order_number, $matches)) {
+                    $lastNumber = (int) $matches[1];
+                }
+                $jobOrder->job_order_number = 'JO-' . str_pad($lastNumber + 1, 4, '0', STR_PAD_LEFT);
+            }
+        });
+
         static::updating(function ($jobOrder) {
             if (
                 $jobOrder->isDirty('status') &&
@@ -219,16 +268,29 @@ class JobOrder extends Model
                 $jobOrder->production_mode === 'make_to_stock'
             ) {
                 foreach ($jobOrder->outputs as $output) {
-                    StockMovement::create([
-                        'inventory_item_id' => $output->inventory_item_id,
-                        'warehouse_id' => $output->warehouse_id,
-                        'type' => 'production',
-                        'reference_type' => 'JobOrderOutput',
-                        'reference_id' => $output->id,
-                        'quantity' => $output->quantity,
-                        'movement_date' => now(),
-                    ]);
+                    // Prevent duplicate movements
+                    $exists = StockMovement::where('reference_type', 'JobOrderOutput')
+                        ->where('reference_id', $output->id)
+                        ->exists();
+                        
+                    if (!$exists) {
+                        StockMovement::create([
+                            'inventory_item_id' => $output->inventory_item_id,
+                            'warehouse_id' => $output->warehouse_id,
+                            'type' => 'production_output',
+                            'reference_type' => 'JobOrderOutput',
+                            'reference_id' => $output->id,
+                            'quantity' => abs($output->quantity),
+                            'movement_date' => now(),
+                        ]);
+                    }
                 }
+            }
+        });
+
+        static::updated(function ($jobOrder) {
+            if ($jobOrder->wasChanged('status') && $jobOrder->status === 'cancelled') {
+                $jobOrder->jobOrderTasks()->update(['status' => 'cancelled']);
             }
         });
     }

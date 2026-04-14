@@ -36,7 +36,18 @@ class PaymentsRelationManager extends RelationManager
                     ->label('Amount')
                     ->numeric()
                     ->required()
-                    ->suffix('Birr'),
+                    ->suffix('Birr')
+                    ->maxValue(function ($record) {
+                        $owner = $this->getOwnerRecord();
+                        $currentAllocation = $record ? $record->allocated_amount : 0;
+                        return max(0, $owner->total_price - ($owner->paid_amount - $currentAllocation));
+                    })
+                    ->helperText(function ($record) {
+                        $owner = $this->getOwnerRecord();
+                        $currentAllocation = $record ? $record->allocated_amount : 0;
+                        $remaining = $owner->total_price - ($owner->paid_amount - $currentAllocation);
+                        return "Remaining balance to allocate: " . number_format($remaining, 2) . " Birr";
+                    }),
 
                 Select::make('method')
                     ->options([

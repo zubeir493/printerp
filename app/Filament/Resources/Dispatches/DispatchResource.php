@@ -27,14 +27,12 @@ class DispatchResource extends Resource
         return DispatchForm::configure($schema);
     }
 
-    public static function infolist(Schema $schema): Schema
-    {
-        return DispatchInfolist::configure($schema);
-    }
+
 
     public static function table(Table $table): Table
     {
-        return DispatchesTable::configure($table);
+        return DispatchesTable::configure($table)
+            ->recordUrl(fn($record) => static::getUrl('view', ['record' => $record]));
     }
 
     public static function getRelations(): array

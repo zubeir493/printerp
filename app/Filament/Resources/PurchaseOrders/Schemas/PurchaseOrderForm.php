@@ -58,6 +58,15 @@ class PurchaseOrderForm
 
                         Repeater::make('purchaseOrderItems')
                             ->relationship('purchaseOrderItems')
+                            ->table([
+                                TableColumn::make('Item'),
+                                TableColumn::make('Qty'),
+                                TableColumn::make('Received Qty'),
+                                TableColumn::make('Unit Price'),
+                                TableColumn::make('Total'),
+                                TableColumn::make('Status'),
+                            ])
+                            ->compact()
                             ->schema([
                                 Select::make('inventory_item_id')
                                     ->relationship('inventoryItem', 'name', fn($query) =>
@@ -90,6 +99,12 @@ class PurchaseOrderForm
                                     ->dehydrated()
                                     ->disabled(fn($get) => $get('../../status') !== 'draft'),
 
+                                TextInput::make('received_quantity')
+                                    ->numeric()
+                                    ->readOnly()
+                                    ->default(0)
+                                    ->dehydrated(false),
+
                                 TextInput::make('unit_price')
                                     ->numeric()
                                     ->required()
@@ -106,6 +121,7 @@ class PurchaseOrderForm
                                         $set('../../subtotal', $subtotal);
                                     })
                                     ->dehydrated()
+                                    ->dehydrated()
                                     ->disabled(fn($get) => $get('../../status') !== 'draft'),
 
                                 TextInput::make('total')
@@ -113,8 +129,35 @@ class PurchaseOrderForm
                                     ->readOnly()
                                     ->dehydrated()
                                     ->suffix('Birr'),
+                                
+                                Select::make('status')
+                                    ->options([
+                                        'pending' => 'Pending',
+                                        'partially_received' => 'Partially Received',
+                                        'received' => 'Received',
+                                        'cancelled' => 'Cancelled',
+                                    ])
+                                    ->default('pending')
+                                    ->required()
+                                    ->live()
+                                    ->afterStateUpdated(function ($get, $set) {
+                                        $items = collect($get('../../purchaseOrderItems') ?? []);
+                                        if ($items->count() > 0) {
+                                            $allFinished = $items->every(fn($i) => in_array($i['status'] ?? 'pending', ['received', 'cancelled']));
+                                            $hasReceived = $items->contains(fn($i) => ($i['status'] ?? 'pending') === 'received');
+
+                                            if ($allFinished) {
+                                                $set('../../status', $hasReceived ? 'received' : 'cancelled');
+                                            } elseif ($items->contains(fn($i) => ($i['status'] ?? 'pending') === 'partially_received')) {
+                                                $current = $get('../../status');
+                                                if (in_array($current, ['draft', 'approved'])) {
+                                                    $set('../../status', 'partially_received');
+                                                }
+                                            }
+                                        }
+                                    }),
                             ])
-                            ->columns(4)
+                            ->columns(5)
                             ->live()
                             ->afterStateUpdated(function ($get, $set) {
                                 $subtotal = collect($get('purchaseOrderItems'))
@@ -122,6 +165,27 @@ class PurchaseOrderForm
 
                                 $set('subtotal', $subtotal);
                             })
+                            ->deleteAction(
+                                fn($action) => $action->after(function ($get, $set) {
+                                    $items = collect($get('purchaseOrderItems') ?? []);
+                                    $subtotal = $items->sum(fn($item) => $item['total'] ?? 0);
+                                    $set('subtotal', $subtotal);
+
+                                    if ($items->count() > 0) {
+                                        $allFinished = $items->every(fn($i) => in_array($i['status'] ?? 'pending', ['received', 'cancelled']));
+                                        $hasReceived = $items->contains(fn($i) => ($i['status'] ?? 'pending') === 'received');
+
+                                        if ($allFinished) {
+                                            $set('status', $hasReceived ? 'received' : 'cancelled');
+                                        } elseif ($items->contains(fn($i) => ($i['status'] ?? 'pending') === 'partially_received')) {
+                                            $current = $get('status');
+                                            if (in_array($current, ['draft', 'approved'])) {
+                                                $set('status', 'partially_received');
+                                            }
+                                        }
+                                    }
+                                })
+                            )
                             ->defaultItems(1)
                             ->cloneable()
                             ->minItems(1),
@@ -135,6 +199,7 @@ class PurchaseOrderForm
                             ->options([
                                 'draft' => 'Draft',
                                 'approved' => 'Approved',
+                                'partially_received' => 'Partially Received',
                                 'received' => 'Received',
                                 'cancelled' => 'Cancelled',
                             ])

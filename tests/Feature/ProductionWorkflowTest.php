@@ -1,0 +1,126 @@
+<?php
+
+namespace Tests\Feature;
+
+use App\Models\Artwork;
+use App\Models\JobOrder;
+use App\Models\JobOrderTask;
+use App\Models\Machine;
+use App\Models\Partner;
+use App\Models\ProductionPlan;
+use App\Models\ProductionPlanItem;
+use App\Models\ProductionReport;
+use App\Models\ProductionReportItem;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\TestCase;
+
+class ProductionWorkflowTest extends TestCase
+{
+    use RefreshDatabase;
+
+    public function test_job_order_requires_approved_artwork_before_production()
+    {
+        $partner = Partner::create([
+            'name' => 'Production Client',
+            'is_customer' => true,
+        ]);
+
+        $jobOrder = JobOrder::create([
+            'partner_id' => $partner->id,
+            'job_order_number' => 'JO-PROD-001',
+            'job_type' => 'packages',
+            'cost_calc_file' => 'calc.xlsx',
+            'services' => [],
+            'status' => 'draft',
+            'submission_date' => now(),
+            'total_price' => 100000,
+            'advance_amount' => 20000,
+        ]);
+
+        $this->expectException(\Exception::class);
+        $jobOrder->update(['status' => 'production']);
+    }
+
+    public function test_production_plan_and_report_can_be_created_for_approved_job_order()
+    {
+        $partner = Partner::create([
+            'name' => 'Production Client 2',
+            'is_customer' => true,
+        ]);
+
+        $jobOrder = JobOrder::create([
+            'partner_id' => $partner->id,
+            'job_order_number' => 'JO-PROD-002',
+            'job_type' => 'packages',
+            'cost_calc_file' => 'calc-bags.xlsx',
+            'services' => [],
+            'status' => 'draft',
+            'submission_date' => now(),
+            'total_price' => 80000,
+            'advance_amount' => 15000,
+        ]);
+
+        Artwork::create([
+            'job_order_id' => $jobOrder->id,
+            'filename' => 'artwork-1.pdf',
+            'is_approved' => true,
+        ]);
+
+        $jobOrder->update(['status' => 'production']);
+
+        $this->assertNotNull($jobOrder->fresh()->production_started_at);
+        $this->assertEquals('production', $jobOrder->status);
+
+        $machine = Machine::create([
+            'name' => 'Offset Press 2',
+            'code' => 'OP-2',
+        ]);
+
+        $plan = ProductionPlan::create([
+            'week_start' => now()->startOfWeek(),
+            'week_end' => now()->endOfWeek(),
+            'status' => 'approved',
+        ]);
+
+        $task = JobOrderTask::create([
+            'job_order_id' => $jobOrder->id,
+            'name' => 'Produce Packaging',
+            'quantity' => 5000,
+            'unit_cost' => 10.00,
+        ]);
+
+        $planItem = ProductionPlanItem::create([
+            'production_plan_id' => $plan->id,
+            'machine_id' => $machine->id,
+            'job_order_task_id' => $task->id,
+            'planned_quantity' => 5000,
+            'planned_plates' => 1,
+            'planned_rounds' => 2,
+        ]);
+
+        $report = ProductionReport::create([
+            'production_plan_id' => $plan->id,
+            'status' => 'completed',
+        ]);
+
+        ProductionReportItem::create([
+            'production_report_id' => $report->id,
+            'production_plan_item_id' => $planItem->id,
+            'date' => now(),
+            'actual_quantity' => 4900,
+            'plates_used' => 1,
+            'rounds' => 2,
+        ]);
+
+        $this->assertDatabaseHas('production_plan_items', [
+            'id' => $planItem->id,
+            'machine_id' => $machine->id,
+        ]);
+
+        $this->assertDatabaseHas('production_report_items', [
+            'production_report_id' => $report->id,
+            'production_plan_item_id' => $planItem->id,
+            'actual_quantity' => 4900,
+        ]);
+    }
+}

@@ -15,7 +15,7 @@ class DispatchesTable
     {
         return $table
             ->columns([
-                TextColumn::make('jobOrder.customer.name')
+                TextColumn::make('jobOrder.partner.name')
                     ->label('Customer')
                     ->searchable(),
                 TextColumn::make('jobOrder.job_order_number')
@@ -30,7 +30,6 @@ class DispatchesTable
                 //
             ])
             ->recordActions([
-                ViewAction::make(),
                 EditAction::make(),
             ])
             ->toolbarActions([

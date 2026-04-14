@@ -18,36 +18,36 @@ class PaymentsTable
                     ->searchable(),
                 TextColumn::make('partner.name')
                     ->searchable(),
-                TextColumn::make('payment_date')
-                    ->date()
-                    ->sortable(),
                 TextColumn::make('amount')
                     ->numeric()
                     ->sortable(),
                 TextColumn::make('direction')
+                    ->badge()
+                    ->color(fn($state) => $state === 'inbound' ? 'success' : 'danger')
                     ->searchable(),
                 TextColumn::make('method')
                     ->searchable(),
                 TextColumn::make('reference')
                     ->searchable(),
-                TextColumn::make('created_at')
-                    ->dateTime()
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
-                TextColumn::make('updated_at')
-                    ->dateTime()
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('payment_date')
+                    ->date()
+                    ->sortable(),
+            ])
+            ->headerActions([
+                \Filament\Actions\ExportAction::make()
+                    ->exporter(\App\Filament\Exports\PaymentExporter::class)
             ])
             ->filters([
                 //
             ])
-            ->recordActions([
+            ->actions([
                 EditAction::make(),
             ])
-            ->toolbarActions([
+            ->bulkActions([
                 BulkActionGroup::make([
                     DeleteBulkAction::make(),
+                    \Filament\Actions\ExportBulkAction::make()
+                        ->exporter(\App\Filament\Exports\PaymentExporter::class)
                 ]),
             ]);
     }

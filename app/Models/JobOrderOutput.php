@@ -40,4 +40,18 @@ class JobOrderOutput extends Model
     {
         return $this->belongsTo(Warehouse::class);
     }
+    protected static function booted()
+    {
+        static::created(function ($output) {
+            StockMovement::create([
+                'inventory_item_id' => $output->inventory_item_id,
+                'warehouse_id' => $output->warehouse_id,
+                'type' => 'production_output',
+                'quantity' => abs($output->quantity),
+                'reference_type' => self::class,
+                'reference_id' => $output->id,
+                'movement_date' => now(),
+            ]);
+        });
+    }
 }

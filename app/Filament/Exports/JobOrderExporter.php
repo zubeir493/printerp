@@ -1,0 +1,46 @@
+<?php
+
+namespace App\Filament\Exports;
+
+use App\Models\JobOrder;
+use Filament\Actions\Exports\ExportColumn;
+use Filament\Actions\Exports\Exporter;
+use Filament\Actions\Exports\Models\Export;
+use Illuminate\Support\Number;
+
+class JobOrderExporter extends Exporter
+{
+    protected static ?string $model = JobOrder::class;
+
+    public static function getColumns(): array
+    {
+        return [
+            ExportColumn::make('job_order_number')
+                ->label('Job Order #'),
+            ExportColumn::make('partner.name')
+                ->label('Customer'),
+            ExportColumn::make('job_type')
+                ->label('Type'),
+            ExportColumn::make('submission_date')
+                ->label('Submission Date'),
+            ExportColumn::make('total_price')
+                ->label('Total Price (Birr)'),
+            ExportColumn::make('status')
+                ->label('Status'),
+            ExportColumn::make('production_started_at'),
+            ExportColumn::make('materials_fully_issued_at'),
+            ExportColumn::make('production_mode'),
+        ];
+    }
+
+    public static function getCompletedNotificationBody(Export $export): string
+    {
+        $body = 'Your job order export has completed and ' . Number::format($export->successful_rows) . ' ' . str('row')->plural($export->successful_rows) . ' exported.';
+
+        if ($failedRowsCount = $export->getFailedRowsCount()) {
+            $body .= ' ' . Number::format($failedRowsCount) . ' ' . str('row')->plural($failedRowsCount) . ' failed to export.';
+        }
+
+        return $body;
+    }
+}

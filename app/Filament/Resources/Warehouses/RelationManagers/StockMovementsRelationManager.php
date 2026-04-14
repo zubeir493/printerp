@@ -35,9 +35,9 @@ class StockMovementsRelationManager extends RelationManager
                     ->badge()
                     ->color(fn(string $state): string => match ($state) {
                         'purchase' => 'success',
-                        'consumption' => 'danger',
-                        'transfer_in' => 'info',
-                        'transfer_out' => 'warning',
+                        'transfer_in', 'material_return' => 'primary',
+                        'production_output' => 'info',
+                        'transfer_out', 'consumption' => 'danger',
                         'adjustment' => 'gray',
                         default => 'gray',
                     })
@@ -77,6 +77,8 @@ class StockMovementsRelationManager extends RelationManager
                         'transfer_in' => 'Transfer In',
                         'transfer_out' => 'Transfer Out',
                         'adjustment' => 'Adjustment',
+                        'material_return' => 'Material Return',
+                        'production_output' => 'Production Output',
                     ]),
             ])
             ->headerActions([

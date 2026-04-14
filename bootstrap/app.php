@@ -14,5 +14,16 @@ return Application::configure(basePath: dirname(__DIR__))
         //
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        //
+        $exceptions->render(function (\Throwable $e, \Illuminate\Http\Request $request) {
+            if ($e instanceof \Symfony\Component\HttpKernel\Exception\HttpException && $e->getStatusCode() === 403) {
+                if (\Illuminate\Support\Facades\Auth::check()) {
+                    $redirectPath = \Illuminate\Support\Facades\Auth::user()->role->getRedirectPath();
+                    
+                    // Avoid infinite redirect if the user still doesn't have access to their home panel
+                    if (rtrim($request->getPathInfo(), '/') !== rtrim($redirectPath, '/')) {
+                        return redirect($redirectPath);
+                    }
+                }
+            }
+        });
     })->create();

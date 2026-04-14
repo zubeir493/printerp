@@ -2,12 +2,13 @@
 
 namespace App\Filament\Resources\JobOrders\Tables;
 
-use Filament\Actions\Action as ActionsAction;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
-use Filament\Tables\Actions\Action;
+use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\SelectFilter;
+use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;
 
 class JobOrdersTable
@@ -16,32 +17,76 @@ class JobOrdersTable
     {
         return $table
             ->columns([
-                TextColumn::make('customer.name')
-                    ->searchable(),
                 TextColumn::make('job_order_number')
                     ->label('Job Order #')
-                    ->searchable(),
-                TextColumn::make('job_type')
-                    ->badge()
-                    ->searchable(),
-                TextColumn::make('submission_date')
-                    ->date()
+                    ->searchable()
+                    ->sortable(),
+                TextColumn::make('partner.name')
+                    ->label('Customer')
+                    ->searchable()
                     ->sortable(),
                 TextColumn::make('status')
-                    ->searchable(),
+                    ->badge()
+                    ->color(fn(string $state): string => match ($state) {
+                        'draft' => 'gray',
+                        'design' => 'info',
+                        'production' => 'warning',
+                        'completed' => 'success',
+                        'cancelled' => 'danger',
+                    }),
                 TextColumn::make('total_price')
                     ->suffix(' Birr')
                     ->sortable(),
+                \Filament\Tables\Columns\IconColumn::make('advance_paid')
+                    ->boolean()
+                    ->label('Adv. Paid'),
+                // TextColumn::make('balance')
+                //     ->label('Balance')
+                //     ->state(fn($record) => $record->balance)
+                //     ->suffix(' Birr')
+                //     ->color(fn($state) => $state > 0 ? 'danger' : 'success')
+                //     ->sortable(query: function ($query, string $direction) {
+                //         return $query->selectRaw('*, (total_price - (SELECT COALESCE(SUM(allocated_amount), 0) FROM payment_allocations WHERE allocatable_id = job_orders.id AND allocatable_type = "App\\\Models\\\JobOrder")) as current_balance')
+                //             ->orderBy('current_balance', $direction);
+                //     }),
+            ])
+            ->headerActions([
+                \Filament\Actions\ExportAction::make()
+                    ->exporter(\App\Filament\Exports\JobOrderExporter::class)
             ])
             ->filters([
-                //
+                TernaryFilter::make('payment_status')
+                    ->label('Payment Status')
+                    ->placeholder('All')
+                    ->trueLabel('Pending Payments')
+                    ->falseLabel('Fully Paid')
+                    ->queries(
+                        true: fn($query) => $query->pendingPayment(),
+                        false: fn($query) => $query->fullyPaid(),
+                    ),
+                SelectFilter::make('status')
+                    ->options([
+                        'draft' => 'Draft',
+                        'design' => 'Design',
+                        'production' => 'Production',
+                        'completed' => 'Completed',
+                        'cancelled' => 'Cancelled',
+                    ])
+                    ->preload()
+                    ->searchable(),
+
+            ])
+            ->actions([
+                EditAction::make(),
             ])
             ->recordActions([
                 EditAction::make(),
             ])
-            ->toolbarActions([
+            ->bulkActions([
                 BulkActionGroup::make([
                     DeleteBulkAction::make(),
+                    \Filament\Actions\ExportBulkAction::make()
+                        ->exporter(\App\Filament\Exports\JobOrderExporter::class)
                 ]),
             ]);
     }

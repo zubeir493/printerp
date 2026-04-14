@@ -26,9 +26,12 @@ class InventoryItemResource extends Resource
         return InventoryItemForm::configure($schema);
     }
 
+
+
     public static function table(Table $table): Table
     {
-        return InventoryItemsTable::configure($table);
+        return InventoryItemsTable::configure($table)
+            ->recordUrl(fn($record) => static::getUrl('view', ['record' => $record]));
     }
 
     public static function getRelations(): array
@@ -43,6 +46,7 @@ class InventoryItemResource extends Resource
         return [
             'index' => ListInventoryItems::route('/'),
             'create' => CreateInventoryItem::route('/create'),
+            'view' => \App\Filament\Resources\InventoryItems\Pages\ViewInventoryItem::route('/{record}'),
             'edit' => EditInventoryItem::route('/{record}/edit'),
         ];
     }

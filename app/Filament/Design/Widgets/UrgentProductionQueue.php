@@ -1,0 +1,43 @@
+<?php
+
+namespace App\Filament\Design\Widgets;
+
+use App\Models\Artwork;
+use App\Models\JobOrder;
+use Filament\Tables;
+use Filament\Tables\Table;
+use Filament\Widgets\TableWidget as BaseWidget;
+use Carbon\Carbon;
+
+class UrgentProductionQueue extends BaseWidget
+{
+    protected static ?int $sort = 3;
+    protected int | string | array $columnSpan = 'full';
+    protected static ?string $heading = 'Urgent Production Queue (Next 48 Hours)';
+
+    public function table(Table $table): Table
+    {
+        return $table
+            ->query(
+                JobOrder::query()
+                    ->where('status', 'design')
+                    ->latest()
+                    ->limit(10)
+            )
+            ->columns([
+                Tables\Columns\TextColumn::make('job_order_number')
+                    ->label('Job Order #')
+                    ->searchable(),
+                Tables\Columns\TextColumn::make('partner.name')
+                    ->label('Customer'),
+                Tables\Columns\TextColumn::make('submission_date')
+                    ->date()
+                    ->label('Submitted'),
+            ])
+            ->actions([
+                \Filament\Actions\Action::make('View')
+                    ->url(fn (JobOrder $record): string => '/admin/job-orders/' . $record->id)
+                    ->icon('heroicon-m-eye'),
+            ]);
+    }
+}

@@ -18,7 +18,6 @@ class EditJobOrder extends EditRecord
         return [
             DeleteAction::make(),
             \Filament\Actions\Action::make('issue_materials')
-                ->label('Issue Materials')
                 ->icon('heroicon-o-archive-box-arrow-down')
                 ->color('warning')
                 ->visible(fn() => $this->record->status === 'production')
@@ -29,36 +28,38 @@ class EditJobOrder extends EditRecord
                         ->required()
                         ->searchable(),
                     Repeater::make('items')
-                        ->grid(2)->addable(false)->deletable(false)
+                        ->addable(false)
+                        ->deletable(false)
+                        ->reorderable(false)
                         ->schema([
                             Select::make('inventory_item_id')
                                 ->label('Material')
                                 ->options(\App\Models\InventoryItem::pluck('name', 'id'))
                                 ->required()
-                                ->reactive()
-                                ->afterStateUpdated(
-                                    fn($state, $set, $get) =>
-                                    $set('remaining', $record->jobOrderTasks->flatMap->paper->where('inventory_item_id', $state)->sum(fn($p) => ($p['required_quantity'] ?? 0) + ($p['reserve_quantity'] ?? 0)) - $record->issuedQuantityFor($state))
-                                ),
+                                ->disabled()
+                                ->dehydrated(),
                             TextInput::make('quantity')
                                 ->numeric()
                                 ->required()
-                                ->label('Quantity to Issue'),
-                            \Filament\Forms\Components\Placeholder::make('info')
-                                ->content(fn($get) => "Required: " . ($record->jobOrderTasks->flatMap->paper->where('inventory_item_id', $get('inventory_item_id'))->sum(fn($p) => ($p['required_quantity'] ?? 0) + ($p['reserve_quantity'] ?? 0))) . " | Issued: " . $record->issuedQuantityFor($get('inventory_item_id')))
-                        ])
-                        ->default(fn() => $record->jobOrderTasks->flatMap->paper->map(fn($p) => [
-                            'inventory_item_id' => $p['inventory_item_id'],
-                            'quantity' => (($p['required_quantity'] ?? 0) + ($p['reserve_quantity'] ?? 0)) - $record->issuedQuantityFor($p['inventory_item_id']),
-                        ])->filter(fn($p) => $p['quantity'] > 0)->values()->toArray())
+                                ->label('Quantity to Issue')
+                                ->hint(fn($get) => "Required: " . ($record->jobOrderTasks->flatMap->paper->where('inventory_item_id', $get('inventory_item_id'))->sum(fn($p) => ($p['required_quantity'] ?? 0) + ($p['reserve_quantity'] ?? 0))) . " | Issued: " . $record->issuedQuantityFor($get('inventory_item_id')))
+                        ])->columns(2)
+                        ->default(fn() => $record->jobOrderTasks->flatMap->paper->pluck('inventory_item_id')->unique()->map(fn($itemId) => [
+                            'inventory_item_id' => (int)$itemId,
+                            'quantity' => (float)max(0, (($record->jobOrderTasks->flatMap->paper->where('inventory_item_id', $itemId)->sum(fn($p) => ($p['required_quantity'] ?? 0) + ($p['reserve_quantity'] ?? 0))) - $record->issuedQuantityFor($itemId))),
+                        ])->values()->toArray()),
                 ])
+                ->modalHeading('Issue Materials')
                 ->requiresConfirmation(fn($data) => collect($data['items'] ?? [])->contains(function ($item) {
-                    $required = $this->record->jobOrderTasks->flatMap->paper->where('inventory_item_id', $item['inventory_item_id'])->sum(fn($p) => ($p['required_quantity'] ?? 0) + ($p['reserve_quantity'] ?? 0));
-                    $issued = $this->record->issuedQuantityFor($item['inventory_item_id']);
-                    return ($issued + ($item['quantity'] ?? 0)) > $required;
+                    $required = (float) $this->record->jobOrderTasks->flatMap->paper->where('inventory_item_id', $item['inventory_item_id'])->sum(fn($p) => ($p['required_quantity'] ?? 0) + ($p['reserve_quantity'] ?? 0));
+                    $issued = (float) $this->record->issuedQuantityFor($item['inventory_item_id']);
+                    return ($item['quantity'] ?? 0) > 0 && round($issued + ($item['quantity'] ?? 0), 4) > round($required, 4);
                 }))
-                ->modalHeading('Confirm Over-issuing')
-                ->modalDescription('You are issuing more than the required quantity. Do you want to proceed?')
+                ->modalDescription(fn($data) => collect($data['items'] ?? [])->contains(function ($item) {
+                    $required = (float) $this->record->jobOrderTasks->flatMap->paper->where('inventory_item_id', $item['inventory_item_id'])->sum(fn($p) => ($p['required_quantity'] ?? 0) + ($p['reserve_quantity'] ?? 0));
+                    $issued = (float) $this->record->issuedQuantityFor($item['inventory_item_id']);
+                    return ($item['quantity'] ?? 0) > 0 && round($issued + ($item['quantity'] ?? 0), 4) > round($required, 4);
+                }) ? 'You are issuing more than the required quantity. Do you want to proceed?' : null)
                 ->action(function ($record, $data) {
                     $inventoryService = app(\App\Services\InventoryService::class);
                     foreach ($data['items'] as $item) {
@@ -66,7 +67,7 @@ class EditJobOrder extends EditRecord
                             $item['inventory_item_id'],
                             $data['warehouse_id'],
                             $item['quantity'],
-                            'material_issue',
+                            'consumption',
                             $record->id
                         );
                     }
@@ -81,39 +82,61 @@ class EditJobOrder extends EditRecord
                 ->color('danger')
                 ->visible(fn() => $this->record->status === 'production')
                 ->form(fn($record) => [
-                    \Filament\Forms\Components\Select::make('warehouse_id')
-                        ->label('Warehouse')
-                        ->options(\App\Models\Warehouse::pluck('name', 'id'))
-                        ->required()
-                        ->searchable(),
-                    \Filament\Forms\Components\Repeater::make('items')
+                    Repeater::make('warehouses')
+                        ->label('Issues by Warehouse')
+                        ->addable(false)
+                        ->deletable(false)
+                        ->reorderable(false)
                         ->schema([
-                            \Filament\Forms\Components\Select::make('inventory_item_id')
-                                ->label('Material')
-                                ->options(\App\Models\InventoryItem::pluck('name', 'id'))
-                                ->required(),
-                            \Filament\Forms\Components\TextInput::make('quantity')
-                                ->numeric()
-                                ->required()
-                                ->label('Quantity to Return'),
+                            \Filament\Forms\Components\Hidden::make('warehouse_id'),
+                            \Filament\Forms\Components\Placeholder::make('warehouse_name')
+                                ->label(fn($get) => \App\Models\Warehouse::find($get('warehouse_id'))?->name ?? 'Unknown Warehouse'),
+                            Repeater::make('items')
+                                ->reorderable(false)
+                                ->addable(false)
+                                ->deletable(false)
+                                ->schema([
+                                    \Filament\Forms\Components\Select::make('inventory_item_id')
+                                        ->label('Material')
+                                        ->options(\App\Models\InventoryItem::pluck('name', 'id'))
+                                        ->disabled()
+                                        ->dehydrated(),
+                                    \Filament\Forms\Components\TextInput::make('quantity')
+                                        ->numeric()
+                                        ->required()
+                                        ->label('Quantity to Return')
+                                        ->hint(fn($get) => "Available: " . abs($get('net_quantity') ?? 0))
+                                        ->maxValue(fn($get) => abs($get('net_quantity') ?? 0)),
+                                    \Filament\Forms\Components\Hidden::make('net_quantity'),
+                                ])->columns(2)
                         ])
+                        ->default(function () use ($record) {
+                            $balances = $record->issuedBalanceByWarehouse();
+                            return $balances->map(fn($items, $warehouseId) => [
+                                'warehouse_id' => $warehouseId,
+                                'items' => $items->map(fn($m) => [
+                                    'inventory_item_id' => $m->inventory_item_id,
+                                    'net_quantity' => $m->net_quantity,
+                                    'quantity' => 0,
+                                ])->filter(fn($i) => $i['net_quantity'] < 0)->values()->toArray()
+                            ])->filter(fn($w) => count($w['items']) > 0)->values()->toArray();
+                        })
                 ])
                 ->action(function ($record, $data) {
                     $inventoryService = app(\App\Services\InventoryService::class);
-                    foreach ($data['items'] as $item) {
-                        $issued = $record->issuedQuantityFor($item['inventory_item_id']);
-                        if ($item['quantity'] > $issued) {
-                            throw new \Exception("Cannot return more than net issued ({$issued}) for item ID {$item['inventory_item_id']}.");
-                        }
+                    foreach ($data['warehouses'] as $warehouseGroup) {
+                        foreach ($warehouseGroup['items'] as $item) {
+                            if (($item['quantity'] ?? 0) <= 0) continue;
 
-                        $inventoryService->receiveStock(
-                            $item['inventory_item_id'],
-                            $data['warehouse_id'],
-                            $item['quantity'],
-                            \App\Models\InventoryItem::find($item['inventory_item_id'])->average_cost,
-                            'material_return',
-                            $record->id
-                        );
+                            $inventoryService->receiveStock(
+                                $item['inventory_item_id'],
+                                $warehouseGroup['warehouse_id'],
+                                $item['quantity'],
+                                \App\Models\InventoryItem::find($item['inventory_item_id'])->price,
+                                'material_return',
+                                $record->id
+                            );
+                        }
                     }
                 }),
         ];

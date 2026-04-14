@@ -15,20 +15,9 @@ class CreatePaymentJournalEntry
         $amount = (float)$payment->amount;
         if ($amount <= 0) return;
 
-        $cashAccount = Account::firstOrCreate(
-            ['name' => 'Cash'],
-            ['type' => 'Asset', 'code' => 'ACC-CASH']
-        );
-
-        $arAccount = Account::firstOrCreate(
-            ['name' => 'Accounts Receivable'],
-            ['type' => 'Asset', 'code' => 'ACC-AR']
-        );
-
-        $apAccount = Account::firstOrCreate(
-            ['name' => 'Accounts Payable'],
-            ['type' => 'Liability', 'code' => 'ACC-AP']
-        );
+        $cashAccount = Account::getSystemAccount(Account::CODE_CASH, 'Cash', 'Asset');
+        $arAccount = Account::getSystemAccount(Account::CODE_AR, 'Accounts Receivable', 'Asset');
+        $apAccount = Account::getSystemAccount(Account::CODE_AP, 'Accounts Payable', 'Liability');
 
         $journalEntry = JournalEntry::create([
             'date' => $payment->payment_date ?? now(),

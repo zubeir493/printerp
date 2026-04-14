@@ -16,29 +16,62 @@ class ArtworksTable
     {
         return $table
             ->columns([
-                TextColumn::make('jobOrder.id')
-                    ->searchable(),
+                \Filament\Tables\Columns\IconColumn::make('type')
+                    ->label('Type')
+                    ->getStateUsing(fn($record) => strtolower(pathinfo($record->filename, PATHINFO_EXTENSION)))
+                    ->icon(fn($state) => match ($state) {
+                        'pdf' => 'heroicon-s-document-text',
+                        'ai', 'eps', 'psd' => 'heroicon-s-paint-brush',
+                        'png', 'jpg', 'jpeg', 'webp' => 'heroicon-s-photo',
+                        default => 'heroicon-s-document',
+                    })
+                    ->color(fn($state) => match ($state) {
+                        'pdf' => 'danger',
+                        'ai', 'eps', 'psd' => 'warning',
+                        'png', 'jpg', 'jpeg', 'webp' => 'success',
+                        default => 'gray',
+                    })
+                    ->size(\Filament\Support\Enums\IconSize::Large),
+                TextColumn::make('jobOrder.job_order_number')
+                    ->label('Job Order')
+                    ->searchable()
+                    ->weight('bold')
+                    ->color('primary'),
                 TextColumn::make('filename')
+                    ->label('File Name')
+                    ->formatStateUsing(fn ($state) => basename($state))
+                    ->description(fn($record) => $record->uploader?->name ? "Uploaded by {$record->uploader->name}" : 'System')
                     ->searchable(),
-                IconColumn::make('is_approved')
-                    ->boolean(),
-                TextColumn::make('uploaded_by')
-                    ->numeric()
-                    ->sortable(),
+                \Filament\Tables\Columns\IconColumn::make('is_approved')
+                    ->label('Status')
+                    ->boolean()
+                    ->trueIcon('heroicon-o-check-circle')
+                    ->falseIcon('heroicon-o-clock')
+                    ->trueColor('success')
+                    ->falseColor('warning'),
                 TextColumn::make('created_at')
+                    ->label('Date Uploaded')
                     ->dateTime()
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
-                TextColumn::make('updated_at')
-                    ->dateTime()
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
+                    ->since()
+                    ->color('gray')
+                    ->sortable(),
             ])
             ->filters([
-                //
+                \Filament\Tables\Filters\SelectFilter::make('job_order_id')
+                    ->relationship('jobOrder', 'job_order_number')
+                    ->label('Filter By Job Order')
+                    ->searchable()
+                    ->preload(),
+                \Filament\Tables\Filters\TernaryFilter::make('is_approved')
+                    ->label('Approval Status'),
             ])
             ->recordActions([
-                ViewAction::make(),
+                \Filament\Actions\Action::make('approve')
+                    ->label('Approve')
+                    ->icon('heroicon-m-check-badge')
+                    ->color('success')
+                    ->hidden(fn($record) => $record->is_approved)
+                    ->action(fn($record) => $record->update(['is_approved' => true])),
                 EditAction::make(),
             ])
             ->toolbarActions([

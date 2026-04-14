@@ -20,21 +20,19 @@ class ArtworkResource extends Resource
 {
     protected static ?string $model = Artwork::class;
 
-    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
+    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedFolderArrowDown;
 
     public static function form(Schema $schema): Schema
     {
         return ArtworkForm::configure($schema);
     }
 
-    public static function infolist(Schema $schema): Schema
-    {
-        return ArtworkInfolist::configure($schema);
-    }
+
 
     public static function table(Table $table): Table
     {
-        return ArtworksTable::configure($table);
+        return ArtworksTable::configure($table)
+            ->recordUrl(fn($record) => static::getUrl('view', ['record' => $record]));
     }
 
     public static function getRelations(): array

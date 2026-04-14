@@ -27,14 +27,12 @@ class JournalEntryResource extends Resource
         return JournalEntryForm::configure($schema);
     }
 
-    public static function infolist(Schema $schema): Schema
-    {
-        return JournalEntryInfolist::configure($schema);
-    }
+
 
     public static function table(Table $table): Table
     {
-        return JournalEntriesTable::configure($table);
+        return JournalEntriesTable::configure($table)
+            ->recordUrl(fn($record) => static::getUrl('view', ['record' => $record]));
     }
 
     public static function getRelations(): array

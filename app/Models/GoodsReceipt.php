@@ -41,47 +41,23 @@ class GoodsReceipt extends Model
         });
 
         static::updated(function ($receipt) {
-            \Illuminate\Support\Facades\Log::info("Goods Receipt Updated Event", [
-                'id' => $receipt->id,
-                'status' => $receipt->status,
-                'wasChanged_status' => $receipt->wasChanged('status'),
-                'wasChanged' => $receipt->getChanges(),
-            ]);
-
             if ($receipt->wasChanged('status') && $receipt->status === 'posted' && is_null($receipt->posted_at)) {
-                try {
-                    \Illuminate\Support\Facades\Log::info("Attempting to post Goods Receipt ID: {$receipt->id}");
-
+                \Illuminate\Support\Facades\DB::transaction(function () use ($receipt) {
                     if (!$receipt->warehouse_id) {
                         throw new \Exception("Warehouse ID not selected for Goods Receipt ID: {$receipt->id}");
-                    }
-
-                    $warehouse = \App\Models\Warehouse::find($receipt->warehouse_id);
-                    if (!$warehouse) {
-                        throw new \Exception("Warehouse not found for ID: {$receipt->warehouse_id}");
                     }
 
                     $inventoryService = app(\App\Services\InventoryService::class);
 
                     foreach ($receipt->items as $item) {
                         $poItem = $item->purchaseOrderItem;
-                        if (!$poItem) {
-                            throw new \Exception("Purchase Order Item not found for Goods Receipt Item ID: {$item->id}");
-                        }
+                        if (!$poItem) continue;
 
                         $inventoryItem = $poItem->inventoryItem;
-                        if (!$inventoryItem) {
-                            throw new \Exception("Inventory Item not found for Purchase Order Item ID: {$poItem->id}");
-                        }
+                        $factor = (float)($inventoryItem?->conversion_factor ?: 1);
+                        $baseQuantity = $item->quantity_received * $factor;
 
-                        $baseQuantity = $item->quantity_received;
-                        $factor = (float)($inventoryItem->conversion_factor ?: 1);
-
-                        if ($inventoryItem->conversion_factor) {
-                            $baseQuantity = $item->quantity_received * $factor;
-                        }
-
-                        // 1️⃣ Move stock
+                        // 1. Move stock
                         $inventoryService->createMovement(
                             $inventoryItem,
                             $receipt->warehouse,
@@ -92,17 +68,16 @@ class GoodsReceipt extends Model
                             $receipt->id
                         );
 
-                        // 2️⃣ Update received quantity
+                        // 2. Update received quantity on PO Item
                         $poItem->increment('received_quantity', $item->quantity_received);
+                        
+                        // 3. Trigger PO item sync (status and subtotal)
+                        // This will trigger PurchaseOrderItemObserver@saved
+                        $poItem->save(); 
                     }
 
                     $receipt->updateQuietly(['posted_at' => now()]);
-                    \Illuminate\Support\Facades\Log::info("Successfully posted Goods Receipt ID: {$receipt->id}");
-                } catch (\Exception $e) {
-                    \Illuminate\Support\Facades\Log::error("Failed to post Goods Receipt ID: {$receipt->id}. Error: " . $e->getMessage());
-                    // Re-throw to ensure the transaction rolls back and the user sees the error
-                    throw $e;
-                }
+                });
             }
         });
     }

@@ -6,6 +6,10 @@ use Illuminate\Database\Eloquent\Model;
 
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+use App\Observers\SalesOrderItemObserver;
+use Illuminate\Database\Eloquent\Attributes\ObservedBy;
+
+#[ObservedBy(SalesOrderItemObserver::class)]
 class SalesOrderItem extends Model
 {
     protected $fillable = [

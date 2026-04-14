@@ -10,6 +10,10 @@ class Account extends Model
 {
     use HasFactory;
 
+    public const CODE_CASH = '1010';
+    public const CODE_AR = '1200';
+    public const CODE_AP = '2100';
+
     /**
      * The attributes that are mass assignable.
      *
@@ -20,6 +24,17 @@ class Account extends Model
         'code',
         'type',
     ];
+
+    public static function getSystemAccount(string $code, string $defaultName, string $type = 'Asset')
+    {
+        return self::firstOrCreate(
+            ['code' => $code],
+            [
+                'name' => $defaultName,
+                'type' => $type,
+            ]
+        );
+    }
 
     /**
      * Get the attributes that should be cast.

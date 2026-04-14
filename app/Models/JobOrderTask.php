@@ -21,6 +21,7 @@ class JobOrderTask extends Model
         'quantity',
         'unit_cost',
         'paper',
+        'status',
     ];
 
     /**
@@ -41,5 +42,15 @@ class JobOrderTask extends Model
     public function jobOrder(): BelongsTo
     {
         return $this->belongsTo(JobOrder::class);
+    }
+
+    public function dispatchItems(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(DispatchItem::class);
+    }
+
+    public function getRemainingQuantityAttribute(): int|float
+    {
+        return $this->quantity - $this->dispatchItems()->sum('quantity');
     }
 }

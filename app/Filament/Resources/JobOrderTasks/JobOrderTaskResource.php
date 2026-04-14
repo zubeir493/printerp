@@ -1,0 +1,63 @@
+<?php
+
+namespace App\Filament\Resources\JobOrderTasks;
+
+use App\Filament\Resources\JobOrderTasks\Pages\CreateJobOrderTask;
+use App\Filament\Resources\JobOrderTasks\Pages\EditJobOrderTask;
+use App\Filament\Resources\JobOrderTasks\Pages\ListJobOrderTasks;
+use App\Filament\Resources\JobOrderTasks\Schemas\JobOrderTaskForm;
+use App\Filament\Resources\JobOrderTasks\Tables\JobOrderTasksTable;
+use App\Models\JobOrderTask;
+use BackedEnum;
+use Filament\Resources\Resource;
+use Filament\Schemas\Schema;
+use Filament\Support\Icons\Heroicon;
+use Filament\Tables\Table;
+
+class JobOrderTaskResource extends Resource
+{
+    protected static ?string $model = JobOrderTask::class;
+
+    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedQueueList;
+
+    protected static string|\UnitEnum|null $navigationGroup = 'Production';
+
+    protected static ?string $navigationLabel = 'Master Task List';
+
+    protected static ?string $modelLabel = 'Production Task';
+
+    protected static ?string $recordTitleAttribute = 'name';
+
+    public static function canCreate(): bool
+    {
+        return false;
+    }
+
+    public static function form(Schema $schema): Schema
+    {
+        return JobOrderTaskForm::configure($schema);
+    }
+
+    public static function table(Table $table): Table
+    {
+        return JobOrderTasksTable::configure($table)
+            ->recordUrl(fn($record) => static::getUrl('view', ['record' => $record]));
+    }
+
+    public static function getRelations(): array
+    {
+        return [
+            //
+        ];
+    }
+
+    public static function getPages(): array
+    {
+        return [
+            'index' => ListJobOrderTasks::route('/'),
+            'create' => CreateJobOrderTask::route('/create'),
+            'view' => \App\Filament\Resources\JobOrderTasks\Pages\ViewJobOrderTask::route('/{record}'),
+            'edit' => EditJobOrderTask::route('/{record}/edit'),
+        ];
+    }
+}

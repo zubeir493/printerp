@@ -18,16 +18,20 @@ class AccountResource extends Resource
 {
     protected static ?string $model = Account::class;
 
-    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
+    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedDocumentDuplicate;
+    protected static ?string $navigationLabel = 'Chart of Accounts';
 
     public static function form(Schema $schema): Schema
     {
         return AccountForm::configure($schema);
     }
 
+
+
     public static function table(Table $table): Table
     {
-        return AccountsTable::configure($table);
+        return AccountsTable::configure($table)
+            ->recordUrl(fn($record) => static::getUrl('view', ['record' => $record]));
     }
 
     public static function getRelations(): array
@@ -42,6 +46,7 @@ class AccountResource extends Resource
         return [
             'index' => ListAccounts::route('/'),
             'create' => CreateAccount::route('/create'),
+            'view' => \App\Filament\Resources\Accounts\Pages\ViewAccount::route('/{record}'),
             'edit' => EditAccount::route('/{record}/edit'),
         ];
     }

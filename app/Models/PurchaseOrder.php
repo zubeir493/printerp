@@ -49,6 +49,11 @@ class PurchaseOrder extends Model
         return $this->hasMany(PurchaseOrderItem::class);
     }
 
+    public function goodsReceipts(): HasMany
+    {
+        return $this->hasMany(GoodsReceipt::class);
+    }
+
     public function paymentAllocations(): MorphMany
     {
         return $this->morphMany(PaymentAllocation::class, 'allocatable');
@@ -65,25 +70,23 @@ class PurchaseOrder extends Model
     }
 
 
+    public function recalculateSubtotal(): void
+    {
+        $this->updateQuietly([
+            'subtotal' => (float) $this->purchaseOrderItems()->sum('total'),
+        ]);
+    }
+
+
     protected static function booted()
     {
         static::updating(function ($po) {
-            // When approved: Create Goods Receipt (Draft)
-            if ($po->isDirty('status') && $po->status === 'approved') {
-                $receipt = \App\Models\GoodsReceipt::create([
-                    'receipt_number' => 'GR-' . time(),
-                    'purchase_order_id' => $po->id,
-                    'warehouse_id' => null,
-                    'receipt_date' => now(),
-                    'status' => 'draft',
-                ]);
+            //
+        });
 
-                foreach ($po->purchaseOrderItems as $item) {
-                    $receipt->items()->create([
-                        'purchase_order_item_id' => $item->id,
-                        'quantity_received' => $item->quantity,
-                    ]);
-                }
+        static::updated(function ($po) {
+            if ($po->wasChanged('status') && $po->status === 'cancelled') {
+                $po->purchaseOrderItems()->update(['status' => 'cancelled']);
             }
         });
     }
