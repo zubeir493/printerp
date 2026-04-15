@@ -4,7 +4,6 @@ namespace App\Filament\Resources\StockMovements\Tables;
 
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
-use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
@@ -50,7 +49,6 @@ class StockMovementsTable
                     ]),
             ])
             ->recordActions([
-                EditAction::make(),
             ])
             ->headerActions([
                 \Filament\Actions\ExportAction::make()

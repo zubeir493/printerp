@@ -29,7 +29,7 @@ class JobOrderTasksTable
                     ->sortable(),
                 TextColumn::make('unit_cost')
                     ->label('Cost')
-                    ->money()
+                    ->suffix(' Birr')
                     ->sortable(),
                 \Filament\Tables\Columns\SelectColumn::make('status')
                     ->options([
@@ -47,7 +47,14 @@ class JobOrderTasksTable
                     ->exporter(\App\Filament\Exports\JobOrderTaskExporter::class)
             ])
             ->filters([
-                //
+                \Filament\Tables\Filters\SelectFilter::make('status')
+                    ->options([
+                        'pending' => 'Pending',
+                        'design' => 'Design',
+                        'production' => 'Production',
+                        'completed' => 'Completed',
+                        'cancelled' => 'Cancelled',
+                    ]),
             ])
             ->actions([
                 EditAction::make(),

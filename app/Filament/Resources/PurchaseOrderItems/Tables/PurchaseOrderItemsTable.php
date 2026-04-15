@@ -43,7 +43,13 @@ class PurchaseOrderItemsTable
                     ->exporter(\App\Filament\Exports\PurchaseOrderItemExporter::class)
             ])
             ->filters([
-                //
+                \Filament\Tables\Filters\SelectFilter::make('status')
+                    ->options([
+                        'pending' => 'Pending',
+                        'partially_received' => 'Partially Received',
+                        'received' => 'Received',
+                        'cancelled' => 'Cancelled',
+                    ]),
             ])
             ->actions([
                 EditAction::make(),

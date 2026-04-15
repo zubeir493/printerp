@@ -2,6 +2,11 @@
 
 namespace App\Providers;
 
+use App\Models\Payment;
+use App\Models\PaymentAllocation;
+use App\Policies\PaymentPolicy;
+use App\Policies\PaymentAllocationPolicy;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -19,6 +24,9 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        Gate::policy(Payment::class, PaymentPolicy::class);
+        Gate::policy(PaymentAllocation::class, PaymentAllocationPolicy::class);
+
         \App\Models\Payment::observe(\App\Observers\PaymentObserver::class);
         \App\Models\PaymentAllocation::observe(\App\Observers\PaymentAllocationObserver::class);
         \App\Models\StockMovement::observe(\App\Observers\StockMovementObserver::class);

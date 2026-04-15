@@ -22,7 +22,8 @@ class UserResource extends Resource
 
     public static function canViewAny(): bool
     {
-        return \Illuminate\Support\Facades\Auth::user()?->role === \App\UserRole::Admin;
+        $user = \Illuminate\Support\Facades\Auth::user();
+        return ($user?->role?->value ?? $user?->role) === \App\UserRole::Admin->value;
     }
 
     public static function canDelete($record): bool

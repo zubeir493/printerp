@@ -33,7 +33,11 @@ class ProductionPlansTable
                     }),
             ])
             ->filters([
-                //
+                \Filament\Tables\Filters\SelectFilter::make('status')
+                    ->options([
+                        'draft' => 'Draft',
+                        'approved' => 'Approved',
+                    ]),
             ])
             ->actions([
                 EditAction::make(),
@@ -64,30 +68,6 @@ class ProductionPlansTable
             ])
             ->recordActions([
                 EditAction::make(),
-                Action::make('report_week')
-                    ->label('Report Week')
-                    ->icon('heroicon-o-clipboard-document-check')
-                    ->color('success')
-                    ->visible(fn($record) => $record->status === 'approved' && !ProductionReport::where('production_plan_id', $record->id)->exists())
-                    ->action(function ($record) {
-                        $report = ProductionReport::create([
-                            'production_plan_id' => $record->id,
-                            'status' => 'draft',
-                        ]);
-
-                        foreach ($record->items as $item) {
-                            ProductionReportItem::create([
-                                'production_report_id' => $report->id,
-                                'production_plan_item_id' => $item->id,
-                                'date' => now(),
-                                'actual_quantity' => $item->planned_quantity,
-                                'plates_used' => $item->planned_plates,
-                                'rounds' => $item->planned_rounds,
-                            ]);
-                        }
-
-                        return redirect(\App\Filament\Resources\ProductionReports\ProductionReportResource::getUrl('edit', ['record' => $report]));
-                    }),
             ])
             ->bulkActions([
                 BulkActionGroup::make([

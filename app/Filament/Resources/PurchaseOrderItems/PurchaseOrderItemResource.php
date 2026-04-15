@@ -18,13 +18,9 @@ class PurchaseOrderItemResource extends Resource
 {
     protected static ?string $model = PurchaseOrderItem::class;
 
-    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedClipboardDocumentList;
+    protected static ?string $navigationParentItem = 'Purchase Orders';
 
-    protected static string|\UnitEnum|null $navigationGroup = 'Finance';
-
-    protected static ?string $navigationLabel = 'Master Purchasing List';
-
-    protected static ?string $modelLabel = 'Purchased Item';
+    protected static ?string $navigationLabel = 'Items';
 
     public static function canCreate(): bool
     {

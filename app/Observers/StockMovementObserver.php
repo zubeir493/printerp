@@ -18,28 +18,19 @@ class StockMovementObserver
         $quantityChange = (float) $stockMovement->quantity;
         $this->validateBalanceChange($stockMovement->inventory_item_id, $stockMovement->warehouse_id, $quantityChange);
 
-        $balance = InventoryBalance::firstOrCreate(
-            [
-                'inventory_item_id' => $stockMovement->inventory_item_id,
-                'warehouse_id' => $stockMovement->warehouse_id,
-            ],
-            ['quantity_on_hand' => 0]
-        );
-
-        $oldQty = (float) $balance->quantity_on_hand;
-        $balance->quantity_on_hand = $oldQty + $quantityChange;
-        $balance->save();
+        $this->applyBalanceChange($stockMovement->inventory_item_id, $stockMovement->warehouse_id, $quantityChange);
 
         Log::info('Balance updated', [
             'item' => $stockMovement->inventory_item_id,
             'warehouse' => $stockMovement->warehouse_id,
-            'old_qty' => $oldQty,
-            'new_qty' => $balance->quantity_on_hand
+            'change' => $quantityChange
         ]);
     }
 
-    public function updating(StockMovement $stockMovement): void
+    public function updated(StockMovement $stockMovement): void
     {
+        Log::info('StockMovementObserver@updated', ['id' => $stockMovement->id]);
+
         $original = $stockMovement->getOriginal();
 
         $oldItemId = $original['inventory_item_id'];
@@ -50,20 +41,47 @@ class StockMovementObserver
         $newWarehouseId = $stockMovement->warehouse_id;
         $newQuantity = (float) $stockMovement->quantity;
 
-        if ($oldItemId === $newItemId && $oldWarehouseId === $newWarehouseId) {
-            $delta = $newQuantity - $oldQuantity;
-            $this->validateBalanceChange($newItemId, $newWarehouseId, $delta);
-            return;
-        }
+        // Reverse the old change
+        $this->applyBalanceChange($oldItemId, $oldWarehouseId, -$oldQuantity);
 
-        $this->validateBalanceChange($oldItemId, $oldWarehouseId, -$oldQuantity);
-        $this->validateBalanceChange($newItemId, $newWarehouseId, $newQuantity);
+        // Apply the new change
+        $this->applyBalanceChange($newItemId, $newWarehouseId, $newQuantity);
+
+        Log::info('StockMovement updated balance changes applied', [
+            'id' => $stockMovement->id,
+            'old' => ['item' => $oldItemId, 'warehouse' => $oldWarehouseId, 'qty' => $oldQuantity],
+            'new' => ['item' => $newItemId, 'warehouse' => $newWarehouseId, 'qty' => $newQuantity]
+        ]);
     }
 
     public function deleted(StockMovement $stockMovement): void
     {
         $quantityChange = -(float) $stockMovement->quantity;
         $this->validateBalanceChange($stockMovement->inventory_item_id, $stockMovement->warehouse_id, $quantityChange);
+        $this->applyBalanceChange($stockMovement->inventory_item_id, $stockMovement->warehouse_id, $quantityChange);
+    }
+
+    private function applyBalanceChange(int $inventoryItemId, int $warehouseId, float $delta): void
+    {
+        $balance = InventoryBalance::firstOrCreate(
+            [
+                'inventory_item_id' => $inventoryItemId,
+                'warehouse_id' => $warehouseId,
+            ],
+            ['quantity_on_hand' => 0]
+        );
+
+        $oldQty = (float) $balance->quantity_on_hand;
+        $balance->quantity_on_hand = $oldQty + $delta;
+        $balance->save();
+
+        Log::info('Balance change applied', [
+            'item' => $inventoryItemId,
+            'warehouse' => $warehouseId,
+            'delta' => $delta,
+            'old_qty' => $oldQty,
+            'new_qty' => $balance->quantity_on_hand
+        ]);
     }
 
     private function validateBalanceChange(int $inventoryItemId, int $warehouseId, float $delta): void

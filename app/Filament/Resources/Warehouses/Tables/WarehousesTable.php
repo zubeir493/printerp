@@ -22,7 +22,7 @@ class WarehousesTable
                     ->searchable(),
             ])
             ->filters([
-                //
+                
             ])
             ->recordActions([
                 EditAction::make(),

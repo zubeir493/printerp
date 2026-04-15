@@ -30,7 +30,11 @@ class InventoryItemsTable
                     ->suffix(' Birr')
             ])
             ->filters([
-                //
+                \Filament\Tables\Filters\SelectFilter::make('type')
+                    ->options([
+                        'raw_material' => 'Raw Material',
+                        'finished_good' => 'Finished Good',
+                    ]),
             ])
             ->recordActions([
                 EditAction::make(),

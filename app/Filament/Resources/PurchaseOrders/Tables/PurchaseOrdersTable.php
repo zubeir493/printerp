@@ -34,7 +34,16 @@ class PurchaseOrdersTable
                     })
             ])
             ->filters([
-                //
+                \Filament\Tables\Filters\SelectFilter::make('status')
+                    ->options([
+                        'draft' => 'Draft',
+                        'approved' => 'Approved',
+                        'received' => 'Received',
+                        'cancelled' => 'Cancelled',
+                    ]),
+                \Filament\Tables\Filters\SelectFilter::make('partner_id')
+                    ->label('Supplier')
+                    ->options(\App\Models\Partner::pluck('name', 'id')->toArray()),
             ])
             ->recordActions([
                 EditAction::make(),

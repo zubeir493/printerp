@@ -2,17 +2,27 @@
 
 namespace App\Observers;
 
+use App\Models\JournalEntry;
+use App\Models\Payment;
 use App\Models\PaymentAllocation;
 use App\Models\JobOrder;
 
 class PaymentAllocationObserver
 {
     /**
-     * Handle the PaymentAllocation "saved" event.
+     * Handle the PaymentAllocation "saving" event.
      */
-    public function saved(PaymentAllocation $paymentAllocation): void
+    public function saving(PaymentAllocation $paymentAllocation): void
     {
-        $this->updateAllocatable($paymentAllocation);
+        if ($paymentAllocation->payment_id) {
+            $hasJournalEntries = JournalEntry::where('source_type', Payment::class)
+                ->where('source_id', $paymentAllocation->payment_id)
+                ->exists();
+
+            if ($hasJournalEntries) {
+                throw new \RuntimeException('Cannot edit payment allocation after its payment has been posted to the accounting ledger.');
+            }
+        }
     }
 
     /**

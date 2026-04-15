@@ -68,21 +68,10 @@ class JobOrdersRelationManager extends RelationManager
                 IconColumn::make('advance_paid')
                     ->boolean(),
                 TextColumn::make('total_price')
-                    ->money()
+                    ->suffix(' Birr')
                     ->sortable(),
                 TextColumn::make('status')
                     ->searchable(),
-                TextColumn::make('created_at')
-                    ->dateTime()
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
-                TextColumn::make('updated_at')
-                    ->dateTime()
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
-                TextColumn::make('advance_amount')
-                    ->numeric()
-                    ->sortable(),
             ])
             ->filters([
                 //

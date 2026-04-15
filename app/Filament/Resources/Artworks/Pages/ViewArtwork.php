@@ -26,6 +26,9 @@ class ViewArtwork extends ViewRecord
                         ->rows(3),
                 ])
                 ->action(function (array $data) {
+                    \Illuminate\Support\Facades\Mail::to($data['email'])
+                        ->send(new \App\Mail\ShareArtwork($this->record, $data['email'], $data['message'] ?? null));
+
                     \Filament\Notifications\Notification::make()
                         ->title('Artwork Shared')
                         ->body("The artwork link has been sent to **{$data['email']}**.")

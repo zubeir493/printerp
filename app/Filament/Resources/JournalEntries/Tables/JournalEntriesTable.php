@@ -38,7 +38,12 @@ class JournalEntriesTable
                     }),
             ])
             ->filters([
-                //
+                \Filament\Tables\Filters\SelectFilter::make('status')
+                    ->options([
+                        'draft' => 'Draft',
+                        'posted' => 'Posted',
+                        'void' => 'Void',
+                    ]),
             ])
             ->recordActions([
                 EditAction::make(),

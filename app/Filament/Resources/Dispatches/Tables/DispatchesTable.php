@@ -27,7 +27,9 @@ class DispatchesTable
                     ->sortable(),
             ])
             ->filters([
-                //
+                \Filament\Tables\Filters\SelectFilter::make('job_order_id')
+                    ->label('Job Order')
+                    ->options(\App\Models\JobOrder::pluck('job_order_number', 'id')->toArray()),
             ])
             ->recordActions([
                 EditAction::make(),

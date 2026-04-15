@@ -4,7 +4,6 @@ namespace App\Filament\Resources\Payments\RelationManagers;
 
 use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteAction;
-use Filament\Actions\EditAction;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Resources\RelationManagers\RelationManager;
@@ -74,7 +73,6 @@ class PaymentAllocationsRelationManager extends RelationManager
                 CreateAction::make(),
             ])
             ->actions([
-                EditAction::make(),
                 DeleteAction::make(),
             ]);
     }

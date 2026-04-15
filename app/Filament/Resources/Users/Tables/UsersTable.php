@@ -23,16 +23,27 @@ class UsersTable
                     ->searchable(),
                 TextColumn::make('role')
                     ->badge()
-                    ->color(fn(\App\UserRole $state): string => match ($state) {
-                        \App\UserRole::Admin => 'danger',
-                        \App\UserRole::Sales, \App\UserRole::Retail => 'success',
-                        \App\UserRole::Finance, \App\UserRole::HR => 'warning',
-                        default => 'gray',
+                    ->color(function ($state): string {
+                        $roleValue = is_string($state) ? $state : ($state instanceof \App\UserRole ? $state->value : (string) $state);
+                        return match ($roleValue) {
+                            'admin' => 'danger',
+                            'sales', 'retail' => 'success',
+                            'finance', 'hr' => 'warning',
+                            default => 'gray',
+                        };
                     })
                     ->searchable(),
             ])
             ->filters([
-                //
+                \Filament\Tables\Filters\SelectFilter::make('role')
+                    ->options([
+                        \App\UserRole::Admin->value => 'Admin',
+                        // \App\UserRole::Operations->value => 'Operations',
+                        \App\UserRole::Finance->value => 'Finance',
+                        \App\UserRole::Sales->value => 'Sales',
+                        // \App\UserRole::Retail->value => 'Retail',
+                        // \App\UserRole::HR->value => 'HR',
+                    ]),
             ])
             ->recordActions([
                 Action::make('changePassword')

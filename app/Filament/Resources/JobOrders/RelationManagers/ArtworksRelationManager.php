@@ -10,11 +10,12 @@ use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\DissociateAction;
 use Filament\Actions\DissociateBulkAction;
 use Filament\Actions\EditAction;
-use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\FileUpload;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Support\Facades\Auth;
 
 class ArtworksRelationManager extends RelationManager
 {
@@ -27,11 +28,15 @@ class ArtworksRelationManager extends RelationManager
                 \Filament\Schemas\Components\Section::make('Artwork Details')
                     ->description('Upload and manage creative assets for this job.')
                     ->schema([
-                        \Filament\Forms\Components\FileUpload::make('filename')
+                        FileUpload::make('filename')
                             ->label('Artwork File')
+                            ->disk('s3')
                             ->directory('artworks')
+                            ->preserveFilenames()
+                            ->maxSize(51200)
                             ->image()
                             ->imageEditor()
+                            ->previewable(false)
                             ->columnSpanFull()
                             ->required(),
                         \Filament\Schemas\Components\Grid::make(2)
@@ -42,7 +47,7 @@ class ArtworksRelationManager extends RelationManager
                                     ->onColor('success')
                                     ->offColor('danger'),
                                 \Filament\Forms\Components\Hidden::make('uploaded_by')
-                                    ->default(auth()->id()),
+                                    ->default(fn() => Auth::id()),
                             ])
                     ])
             ]);

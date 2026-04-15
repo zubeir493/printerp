@@ -4,7 +4,6 @@ namespace App\Filament\Resources\PaymentAllocations\Tables;
 
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
-use Filament\Actions\EditAction;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 
@@ -49,10 +48,23 @@ class PaymentAllocationsTable
                     ->exporter(\App\Filament\Exports\PaymentAllocationExporter::class)
             ])
             ->filters([
-                //
+                \Filament\Tables\Filters\SelectFilter::make('payment_direction')
+                    ->label('Direction')
+                    ->options([
+                        'inbound' => 'Inbound',
+                        'outbound' => 'Outbound',
+                    ])
+                    ->query(function ($query, $direction) {
+                        if (is_array($direction)) {
+                            return $query;
+                        }
+
+                        return $direction
+                            ? $query->whereHas('payment', fn($query) => $query->where('direction', $direction))
+                            : $query;
+                    }),
             ])
             ->actions([
-                EditAction::make(),
             ])
             ->bulkActions([
                 BulkActionGroup::make([

@@ -14,11 +14,12 @@ class JobOrderPolicy
      */
     public function viewAny(User $user): bool
     {
-        return in_array($user->role, [
-            UserRole::Admin,
-            UserRole::Operations,
-            UserRole::Production,
-            UserRole::Design,
+        $userRoleValue = $user->role?->value ?? $user->role;
+        return in_array($userRoleValue, [
+            UserRole::Admin->value,
+            UserRole::Operations->value,
+            UserRole::Production->value,
+            UserRole::Design->value,
         ]);
     }
 
@@ -27,11 +28,12 @@ class JobOrderPolicy
      */
     public function view(User $user, JobOrder $jobOrder): bool
     {
-        return in_array($user->role, [
-            UserRole::Admin,
-            UserRole::Operations,
-            UserRole::Production,
-            UserRole::Design,
+        $userRoleValue = $user->role?->value ?? $user->role;
+        return in_array($userRoleValue, [
+            UserRole::Admin->value,
+            UserRole::Operations->value,
+            UserRole::Production->value,
+            UserRole::Design->value,
         ]);
     }
 
@@ -40,9 +42,10 @@ class JobOrderPolicy
      */
     public function create(User $user): bool
     {
-        return in_array($user->role, [
-            UserRole::Admin,
-            UserRole::Operations,
+        $userRoleValue = $user->role?->value ?? $user->role;
+        return in_array($userRoleValue, [
+            UserRole::Admin->value,
+            UserRole::Operations->value,
         ]);
     }
 
@@ -51,9 +54,10 @@ class JobOrderPolicy
      */
     public function update(User $user, JobOrder $jobOrder): bool
     {
-        return in_array($user->role, [
-            UserRole::Admin,
-            UserRole::Operations,
+        $userRoleValue = $user->role?->value ?? $user->role;
+        return in_array($userRoleValue, [
+            UserRole::Admin->value,
+            UserRole::Operations->value,
         ]);
     }
 
@@ -62,9 +66,10 @@ class JobOrderPolicy
      */
     public function delete(User $user, JobOrder $jobOrder): bool
     {
-        return in_array($user->role, [
-            UserRole::Admin,
-            UserRole::Operations,
+        $userRoleValue = $user->role?->value ?? $user->role;
+        return in_array($userRoleValue, [
+            UserRole::Admin->value,
+            UserRole::Operations->value,
         ]);
     }
 
@@ -73,9 +78,10 @@ class JobOrderPolicy
      */
     public function restore(User $user, JobOrder $jobOrder): bool
     {
-        return in_array($user->role, [
-            UserRole::Admin,
-            UserRole::Operations,
+        $userRoleValue = $user->role?->value ?? $user->role;
+        return in_array($userRoleValue, [
+            UserRole::Admin->value,
+            UserRole::Operations->value,
         ]);
     }
 

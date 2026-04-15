@@ -34,7 +34,14 @@ class StockAdjustmentsTable
                     ->sortable(),
             ])
             ->filters([
-                //
+                \Filament\Tables\Filters\SelectFilter::make('status')
+                    ->options([
+                        'draft' => 'Draft',
+                        'posted' => 'Posted',
+                    ]),
+                \Filament\Tables\Filters\SelectFilter::make('warehouse_id')
+                    ->label('Warehouse')
+                    ->options(\App\Models\Warehouse::pluck('name', 'id')->toArray()),
             ])
             ->recordActions([
                 EditAction::make(),

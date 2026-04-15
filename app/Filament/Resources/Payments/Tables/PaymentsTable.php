@@ -4,8 +4,8 @@ namespace App\Filament\Resources\Payments\Tables;
 
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
-use Filament\Actions\EditAction;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 
 class PaymentsTable
@@ -38,10 +38,19 @@ class PaymentsTable
                     ->exporter(\App\Filament\Exports\PaymentExporter::class)
             ])
             ->filters([
-                //
+                SelectFilter::make('direction')
+                    ->options([
+                        'inbound' => 'Inbound',
+                        'outbound' => 'Outbound',
+                    ]),
+                SelectFilter::make('method')
+                    ->options([
+                        'cash' => 'Cash',
+                        'bank' => 'Bank Transfer',
+                        'check' => 'Check',
+                    ]),
             ])
             ->actions([
-                EditAction::make(),
             ])
             ->bulkActions([
                 BulkActionGroup::make([

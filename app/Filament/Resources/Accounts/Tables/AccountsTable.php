@@ -22,7 +22,14 @@ class AccountsTable
                     ->searchable(),
             ])
             ->filters([
-                //
+                \Filament\Tables\Filters\SelectFilter::make('type')
+                    ->options([
+                        'asset' => 'Asset',
+                        'liability' => 'Liability',
+                        'equity' => 'Equity',
+                        'revenue' => 'Revenue',
+                        'expense' => 'Expense',
+                    ]),
             ])
             ->recordActions([
                 EditAction::make(),

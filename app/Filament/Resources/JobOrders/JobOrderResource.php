@@ -43,10 +43,10 @@ class JobOrderResource extends Resource
             \App\Filament\Resources\JobOrders\RelationManagers\ArtworksRelationManager::class,
         ];
 
-        if (Auth::check() && in_array(Auth::user()->role, [
-            \App\UserRole::Admin,
-            \App\UserRole::Operations,
-            \App\UserRole::Finance,
+        if (Auth::check() && in_array(Auth::user()->role?->value ?? Auth::user()->role, [
+            \App\UserRole::Admin->value,
+            \App\UserRole::Operations->value,
+            \App\UserRole::Finance->value,
         ])) {
             $relations[] = \App\Filament\Resources\JobOrders\RelationManagers\PaymentsRelationManager::class;
         }

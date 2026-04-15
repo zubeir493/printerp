@@ -25,7 +25,21 @@ class PartnersTable
                     ->boolean(),
             ])
             ->filters([
-                //
+                \Filament\Tables\Filters\SelectFilter::make('partner_type')
+                    ->label('Type')
+                    ->options([
+                        'supplier' => 'Supplier',
+                        'customer' => 'Customer',
+                    ])
+                    ->query(function ($query, $state) {
+                        if (is_array($state)) {
+                            return $query;
+                        }
+
+                        return $state === 'supplier'
+                            ? $query->where('is_supplier', true)
+                            : ($state === 'customer' ? $query->where('is_customer', true) : $query);
+                    }),
             ])
             ->recordActions([
                 EditAction::make(),

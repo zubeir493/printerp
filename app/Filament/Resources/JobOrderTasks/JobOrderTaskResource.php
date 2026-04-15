@@ -18,13 +18,9 @@ class JobOrderTaskResource extends Resource
 {
     protected static ?string $model = JobOrderTask::class;
 
-    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedQueueList;
+    protected static ?string $navigationParentItem = 'Job Orders';
 
-    protected static string|\UnitEnum|null $navigationGroup = 'Production';
-
-    protected static ?string $navigationLabel = 'Master Task List';
-
-    protected static ?string $modelLabel = 'Production Task';
+    protected static ?string $navigationLabel = 'Tasks';
 
     protected static ?string $recordTitleAttribute = 'name';
 

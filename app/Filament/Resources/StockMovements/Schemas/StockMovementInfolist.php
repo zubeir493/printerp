@@ -24,19 +24,13 @@ class StockMovementInfolist
                 TextEntry::make('quantity')
                     ->numeric(),
                 TextEntry::make('unit_cost')
-                    ->money()
+                    ->suffix(' Birr')
                     ->placeholder('-'),
                 TextEntry::make('total_cost')
-                    ->money()
+                    ->suffix(' Birr')
                     ->placeholder('-'),
                 TextEntry::make('movement_date')
                     ->date(),
-                TextEntry::make('created_at')
-                    ->dateTime()
-                    ->placeholder('-'),
-                TextEntry::make('updated_at')
-                    ->dateTime()
-                    ->placeholder('-'),
             ]);
     }
 }

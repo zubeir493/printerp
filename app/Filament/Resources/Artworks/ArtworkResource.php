@@ -7,7 +7,6 @@ use App\Filament\Resources\Artworks\Pages\EditArtwork;
 use App\Filament\Resources\Artworks\Pages\ListArtworks;
 use App\Filament\Resources\Artworks\Pages\ViewArtwork;
 use App\Filament\Resources\Artworks\Schemas\ArtworkForm;
-use App\Filament\Resources\Artworks\Schemas\ArtworkInfolist;
 use App\Filament\Resources\Artworks\Tables\ArtworksTable;
 use App\Models\Artwork;
 use BackedEnum;
@@ -26,8 +25,6 @@ class ArtworkResource extends Resource
     {
         return ArtworkForm::configure($schema);
     }
-
-
 
     public static function table(Table $table): Table
     {

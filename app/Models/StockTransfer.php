@@ -55,6 +55,17 @@ class StockTransfer extends Model
 
     protected static function booted()
     {
+        static::creating(function ($transfer) {
+            if (!$transfer->transfer_number) {
+                $lastTransfer = static::orderBy('id', 'desc')->first();
+                $lastNumber = 0;
+                if ($lastTransfer && preg_match('/ST-(\d+)/', $lastTransfer->transfer_number, $matches)) {
+                    $lastNumber = (int) $matches[1];
+                }
+                $transfer->transfer_number = 'ST-' . str_pad($lastNumber + 1, 4, '0', STR_PAD_LEFT);
+            }
+        });
+
         static::updated(function ($transfer) {
             if ($transfer->wasChanged('status') && $transfer->status === 'completed') {
                 $transfer->post();

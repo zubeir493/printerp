@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Facades\Storage;
 
 class Artwork extends Model
 {
@@ -29,5 +30,10 @@ class Artwork extends Model
     public function uploader(): BelongsTo
     {
         return $this->belongsTo(User::class, 'uploaded_by');
+    }
+
+    public function getUrlAttribute(): ?string
+    {
+        return $this->filename ? Storage::disk('s3')->url($this->filename) : null;
     }
 }

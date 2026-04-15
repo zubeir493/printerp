@@ -31,7 +31,11 @@ class ProductionReportsTable
                     ->sortable(),
             ])
             ->filters([
-                //
+                \Filament\Tables\Filters\SelectFilter::make('status')
+                    ->options([
+                        'draft' => 'Draft',
+                        'submitted' => 'Submitted',
+                    ]),
             ])
             ->recordActions([
                 EditAction::make(),
