@@ -9,6 +9,8 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Components\Flex;
+use Filament\Schemas\Components\Grid;
+use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Illuminate\Support\Facades\Auth;
 
@@ -18,51 +20,50 @@ class ArtworkForm
     {
         return $schema
             ->components([
-                \Filament\Schemas\Components\Section::make('Creative Asset')
-                    ->description('Link artwork to a Job Order and upload the design file.')
+                Grid::make(1)
                     ->schema([
-                        \Filament\Schemas\Components\Grid::make(2)
-                            ->schema([
-                                Select::make('job_order_id')
-                                    ->relationship('jobOrder', 'job_order_number')
-                                    ->required()
-                                    ->searchable()
-                                    ->preload()
-                                    ->columnSpan(1),
-                                Toggle::make('is_approved')
-                                    ->label('Production Ready')
-                                    ->onColor('success')
-                                    ->offColor('danger')
-                                    ->columnSpan(1),
-                            ]),
-                        Flex::make([
-                                FileUpload::make('filename')
-                                    ->label('Artwork File')
-                                    ->disk('s3')
-                                    ->directory('artworks')
-                                    ->preserveFilenames()
-                                    ->maxSize(51200)
-                                    ->previewable(false)
-                                    ->required()
-                                    ->columnSpanFull(),
-                                Placeholder::make('download_link')
-                                    ->label('')
-                                    ->content(function ($record) {
-                                        if (!$record) return null;
-                                        $url = \Illuminate\Support\Facades\Storage::disk('s3')->temporaryUrl($record->filename, now()->addMinutes(60));
-                                        return new \Illuminate\Support\HtmlString(
-                                            '<div class="p-4 bg-gray-50 rounded-xl border border-dashed border-gray-300 flex items-center justify-center">' .
-                                            '<a href="' . $url . '" target="_blank" class="text-primary-600 hover:text-primary-800 font-medium flex items-center gap-2">' .
-                                            'Click to Download' .
-                                            '</a>' .
-                                            '</div>'
-                                        );
-                                    })
-                            ]),
-                        Hidden::make('uploaded_by')
-                            ->default(fn() => Auth::id()),
-                        
-                    ]),
+                        Select::make('job_order_task_id')
+                            ->label('Task / Job Order')
+                            ->relationship('jobOrderTask', 'name')
+                            ->getOptionLabelFromRecordUsing(fn ($record) => "{$record->name} ({$record->jobOrder->job_order_number})")
+                            ->required()
+                            ->searchable()
+                            ->preload()
+                            ->columnSpan(1),
+                        FileUpload::make('filename')
+                            ->label('Artwork File')
+                            ->disk('s3')
+                            ->directory('artworks')
+                            ->preserveFilenames()
+                            ->maxSize(51200)
+                            ->previewable(false)
+                            ->required()
+                            ->columnSpanFull(),
+                    ])->columnSpanFull(),
+                Flex::make([
+                        Toggle::make('is_approved')
+                            ->label('Production Ready')
+                            ->onColor('success')
+                            ->offColor('danger')
+                            ->required()
+                            ->columnSpan(1),
+                        Placeholder::make('download_link')
+                            ->label('')
+                            ->hidden(fn ($record) => empty($record?->filename))
+                            ->content(function ($record) {
+                                if (!$record || empty($record->filename)) return null;
+                                $url = \Illuminate\Support\Facades\Storage::disk('s3')->temporaryUrl($record->filename, now()->addMinutes(60));
+                                return new \Illuminate\Support\HtmlString(
+                                    '<div class="p-4 bg-gray-50 rounded-xl border border-dashed border-gray-300 flex items-center justify-center">' .
+                                    '<a href="' . $url . '" target="_blank" class="text-primary-600 hover:text-primary-800 font-medium flex items-center gap-2">' .
+                                    'Click to Download' .
+                                    '</a>' .
+                                    '</div>'
+                                );
+                            })
+                    ])->columnSpanFull(),
+                Hidden::make('uploaded_by')
+                    ->default(fn() => Auth::id()),
             ]);
     }
 }

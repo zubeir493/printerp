@@ -32,17 +32,17 @@ class ArtworksTable
                         default => 'gray',
                     })
                     ->size(\Filament\Support\Enums\IconSize::Large),
-                TextColumn::make('jobOrder.job_order_number')
-                    ->label('Job Order')
+                TextColumn::make('jobOrderTask.name')
+                    ->label('Task')
+                    ->description(fn ($record) => $record->jobOrder?->job_order_number)
                     ->searchable()
-                    ->weight('bold')
-                    ->color('primary'),
+                    ->weight('bold'),
                 TextColumn::make('filename')
                     ->label('File Name')
                     ->formatStateUsing(fn ($state) => basename($state))
                     ->description(fn($record) => $record->uploader?->name ? "Uploaded by {$record->uploader->name}" : 'System')
                     ->searchable(),
-                \Filament\Tables\Columns\IconColumn::make('is_approved')
+                IconColumn::make('is_approved')
                     ->label('Status')
                     ->boolean()
                     ->trueIcon('heroicon-o-check-circle')
@@ -57,9 +57,19 @@ class ArtworksTable
                     ->sortable(),
             ])
             ->filters([
+                \Filament\Tables\Filters\SelectFilter::make('job_order_task_id')
+                    ->label('Filter By Task')
+                    ->relationship('jobOrderTask', 'name')
+                    ->searchable()
+                    ->preload(),
                 \Filament\Tables\Filters\SelectFilter::make('job_order_id')
-                    ->relationship('jobOrder', 'job_order_number')
                     ->label('Filter By Job Order')
+                    ->options(\App\Models\JobOrder::pluck('job_order_number', 'id'))
+                    ->query(function ($query, array $data) {
+                        if ($data['value']) {
+                            $query->whereHas('jobOrderTask', fn($q) => $q->where('job_order_id', $data['value']));
+                        }
+                    })
                     ->searchable()
                     ->preload(),
                 \Filament\Tables\Filters\TernaryFilter::make('is_approved')

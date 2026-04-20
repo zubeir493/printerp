@@ -18,6 +18,7 @@ class Dispatch extends Model
      */
     protected $fillable = [
         'job_order_id',
+        'warehouse_id',
         'delivery_date',
         'remarks',
     ];
@@ -32,8 +33,14 @@ class Dispatch extends Model
         return [
             'id' => 'integer',
             'job_order_id' => 'integer',
+            'warehouse_id' => 'integer',
             'delivery_date' => 'date',
         ];
+    }
+
+    public function warehouse(): BelongsTo
+    {
+        return $this->belongsTo(Warehouse::class);
     }
 
     public function jobOrder(): BelongsTo

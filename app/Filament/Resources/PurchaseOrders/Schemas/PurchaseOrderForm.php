@@ -102,8 +102,7 @@ class PurchaseOrderForm
                                 TextInput::make('received_quantity')
                                     ->numeric()
                                     ->readOnly()
-                                    ->default(0)
-                                    ->dehydrated(false),
+                                    ->default(0),
 
                                 TextInput::make('unit_price')
                                     ->numeric()
@@ -120,7 +119,6 @@ class PurchaseOrderForm
                                         });
                                         $set('../../subtotal', $subtotal);
                                     })
-                                    ->dehydrated()
                                     ->dehydrated()
                                     ->disabled(fn($get) => $get('../../status') !== 'draft'),
 

@@ -43,7 +43,8 @@ class JobOrderTaskResource extends Resource
     public static function getRelations(): array
     {
         return [
-            //
+            RelationManagers\MaterialRequestsRelationManager::class,
+            RelationManagers\ArtworksRelationManager::class,
         ];
     }
 

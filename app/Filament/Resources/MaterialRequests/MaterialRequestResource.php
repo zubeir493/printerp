@@ -1,0 +1,189 @@
+<?php
+
+namespace App\Filament\Resources\MaterialRequests;
+
+use App\Filament\Resources\MaterialRequests\Pages\ManageMaterialRequests;
+use App\Models\MaterialRequest;
+use BackedEnum;
+use Filament\Actions\BulkActionGroup;
+use Filament\Actions\DeleteAction;
+use Filament\Actions\DeleteBulkAction;
+use Filament\Actions\EditAction;
+use Filament\Actions\ViewAction;
+use Filament\Forms\Components\TextInput;
+use Filament\Infolists\Components\TextEntry;
+use Filament\Resources\Resource;
+use Filament\Schemas\Components\Grid;
+use Filament\Schemas\Schema;
+use Filament\Support\Icons\Heroicon;
+use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Table;
+
+class MaterialRequestResource extends Resource
+{
+    protected static ?string $model = MaterialRequest::class;
+
+        protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedBriefcase;
+
+
+    protected static string|\UnitEnum|null $navigationGroup = 'Production';
+
+    public static function form(Schema $schema): Schema
+    {
+        return $schema
+            ->components([
+                Grid::make(2)
+                    ->schema([
+                        \Filament\Forms\Components\Select::make('job_order_task_id')
+                            ->label('Production Task')
+                            ->relationship('jobOrderTask', 'name')
+                            ->getOptionLabelFromRecordUsing(fn ($record) => "{$record->name} ({$record->jobOrder->job_order_number})")
+                            ->required()
+                            ->searchable()
+                            ->preload(),
+                        \Filament\Forms\Components\Select::make('inventory_item_id')
+                            ->label('Material')
+                            ->relationship('inventoryItem', 'name')
+                            ->required()
+                            ->searchable()
+                            ->preload(),
+                    ])->columnSpanFull(),
+                Grid::make(3)
+                    ->schema([
+                        TextInput::make('required_quantity')
+                            ->label('Total Required')
+                            ->required()
+                            ->numeric()
+                            ->readOnly(),
+                        TextInput::make('requested_quantity')
+                            ->label('Quantity Requested')
+                            ->required()
+                            ->numeric(),
+                        TextInput::make('issued_quantity')
+                            ->label('Quantity Issued')
+                            ->numeric()
+                            ->default(0)
+                            ->readOnly(),
+                    ])->columnSpanFull()
+            ]);
+    }
+
+    public static function table(Table $table): Table
+    {
+        return $table
+            ->columns([
+                TextColumn::make('jobOrderTask.name')
+                    ->label('Task')
+                    ->description(fn ($record) => $record->jobOrderTask->jobOrder->job_order_number)
+                    ->weight('bold')
+                    ->color('primary')
+                    ->searchable(),
+                TextColumn::make('inventoryItem.name')
+                    ->label('Material')
+                    ->weight('medium')
+                    ->searchable(),
+                TextColumn::make('status')
+                    ->badge()
+                    ->getStateUsing(function ($record) {
+                        if ($record->issued_quantity >= $record->requested_quantity) return 'Issued';
+                        if ($record->issued_quantity > 0) return 'Partial';
+                        return 'Pending';
+                    })
+                    ->color(fn ($state) => match ($state) {
+                        'Issued' => 'success',
+                        'Partial' => 'warning',
+                        default => 'gray',
+                    }),
+                TextColumn::make('requested_quantity')
+                    ->label('Qty')
+                    ->formatStateUsing(fn ($state, $record) => "{$record->issued_quantity} / {$state}")
+                    ->description('Issued / Requested')
+                    ->alignEnd(),
+            ])
+            ->filters([
+                \Filament\Tables\Filters\SelectFilter::make('job_order_id')
+                    ->label('Job Order')
+                    ->options(\App\Models\JobOrder::pluck('job_order_number', 'id'))
+                    ->searchable()
+                    ->query(function ($query, array $data) {
+                        if ($data['value']) {
+                            $query->whereHas('jobOrderTask', fn ($q) => $q->where('job_order_id', $data['value']));
+                        }
+                    }),
+                \Filament\Tables\Filters\SelectFilter::make('status')
+                    ->options([
+                        'pending' => 'Pending',
+                        'partial' => 'Partial',
+                        'issued' => 'Issued',
+                    ])
+                    ->query(function ($query, array $data) {
+                        if ($data['value'] === 'pending') $query->where('issued_quantity', 0);
+                        if ($data['value'] === 'partial') $query->where('issued_quantity', '>', 0)->whereColumn('issued_quantity', '<', 'requested_quantity');
+                        if ($data['value'] === 'issued') $query->whereColumn('issued_quantity', '>=', 'requested_quantity');
+                    }),
+            ])
+            ->recordActions([
+                \Filament\Actions\Action::make('issue')
+                    ->label('Issue')
+                    ->icon('heroicon-m-archive-box-arrow-down')
+                    ->color('warning')
+                    ->hidden(fn ($record) => $record->issued_quantity >= $record->requested_quantity)
+                    ->form([
+                        \Filament\Forms\Components\Select::make('warehouse_id')
+                            ->label('Warehouse')
+                            ->options(\App\Models\Warehouse::pluck('name', 'id'))
+                            ->default(fn () => \App\Models\Warehouse::where('is_default', true)->value('id'))
+                            ->required(),
+                        TextInput::make('quantity')
+                            ->label('Quantity to Issue')
+                            ->numeric()
+                            ->required()
+                            ->default(fn ($record) => $record->requested_quantity - $record->issued_quantity)
+                            ->maxValue(fn ($record) => $record->requested_quantity - $record->issued_quantity),
+                    ])
+                    ->action(function ($record, array $data) {
+                        try {
+                            \DB::beginTransaction();
+                            $inventoryService = app(\App\Services\InventoryService::class);
+                            
+                            $inventoryService->consumeStock(
+                                $record->inventory_item_id,
+                                $data['warehouse_id'],
+                                $data['quantity'],
+                                \App\Models\JobOrder::class,
+                                $record->jobOrderTask->job_order_id
+                            );
+
+                            $record->increment('issued_quantity', $data['quantity']);
+                            \DB::commit();
+
+                            \Filament\Notifications\Notification::make()
+                                ->title('Materials Issued')
+                                ->success()
+                                ->send();
+                        } catch (\Exception $e) {
+                            \DB::rollBack();
+                            \Filament\Notifications\Notification::make()
+                                ->title('Error Issuing Materials')
+                                ->body($e->getMessage())
+                                ->danger()
+                                ->send();
+                        }
+                    }),
+                EditAction::make(),
+                DeleteAction::make(),
+            ])
+            ->toolbarActions([
+                BulkActionGroup::make([
+                    DeleteBulkAction::make(),
+                ]),
+            ]);
+    }
+
+    public static function getPages(): array
+    {
+        return [
+            'index' => ManageMaterialRequests::route('/'),
+        ];
+    }
+}

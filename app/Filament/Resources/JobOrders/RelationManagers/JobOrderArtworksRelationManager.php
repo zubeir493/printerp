@@ -2,32 +2,36 @@
 
 namespace App\Filament\Resources\JobOrders\RelationManagers;
 
-use Filament\Actions\AssociateAction;
+use App\Models\Artwork;
+use App\Models\JobOrderTask;
 use Filament\Actions\BulkActionGroup;
-use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
-use Filament\Actions\DissociateAction;
-use Filament\Actions\DissociateBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\FileUpload;
+use Filament\Forms\Components\Select;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Support\Facades\Auth;
 
-class ArtworksRelationManager extends RelationManager
+class JobOrderArtworksRelationManager extends RelationManager
 {
     protected static string $relationship = 'artworks';
+
+    protected static ?string $title = 'Artworks Overview';
 
     public function form(Schema $schema): Schema
     {
         return $schema
             ->components([
                 \Filament\Schemas\Components\Section::make('Artwork Details')
-                    ->description('Upload and manage creative assets for this job.')
                     ->schema([
+                        Select::make('job_order_task_id')
+                            ->label('Task')
+                            ->options(fn ($record) => $this->getOwnerRecord()->jobOrderTasks->pluck('name', 'id'))
+                            ->required(),
                         FileUpload::make('filename')
                             ->label('Artwork File')
                             ->disk('s3')
@@ -36,19 +40,9 @@ class ArtworksRelationManager extends RelationManager
                             ->maxSize(51200)
                             ->image()
                             ->imageEditor()
-                            ->previewable(false)
-                            ->columnSpanFull()
                             ->required(),
-                        \Filament\Schemas\Components\Grid::make(2)
-                            ->schema([
-                                \Filament\Forms\Components\Toggle::make('is_approved')
-                                    ->label('Approved for Production')
-                                    ->default(false)
-                                    ->onColor('success')
-                                    ->offColor('danger'),
-                                \Filament\Forms\Components\Hidden::make('uploaded_by')
-                                    ->default(fn() => Auth::id()),
-                            ])
+                        \Filament\Forms\Components\Toggle::make('is_approved')
+                            ->label('Approved'),
                     ])
             ]);
     }
@@ -58,6 +52,8 @@ class ArtworksRelationManager extends RelationManager
         return $table
             ->recordTitleAttribute('filename')
             ->columns([
+                \Filament\Tables\Columns\TextColumn::make('jobOrderTask.name')
+                    ->label('Task'),
                 \Filament\Tables\Columns\IconColumn::make('type')
                     ->label('Type')
                     ->getStateUsing(fn ($record) => strtolower(pathinfo($record->filename, PATHINFO_EXTENSION)))
@@ -74,43 +70,23 @@ class ArtworksRelationManager extends RelationManager
                         'png', 'jpg', 'jpeg', 'webp' => 'success',
                         'zip', 'rar' => 'info',
                         default => 'gray',
-                    })
-                    ->size(\Filament\Support\Enums\IconSize::Large),
+                    }),
                 \Filament\Tables\Columns\TextColumn::make('filename')
                     ->label('File Name')
                     ->formatStateUsing(fn ($state) => basename($state))
-                    ->description(fn($record) => $record->uploader?->name ? "Uploaded by {$record->uploader->name}" : 'Unknown Uploader')
                     ->searchable(),
                 \Filament\Tables\Columns\IconColumn::make('is_approved')
                     ->label('Status')
-                    ->boolean()
-                    ->trueIcon('heroicon-o-check-circle')
-                    ->falseIcon('heroicon-o-clock')
-                    ->trueColor('success')
-                    ->falseColor('warning'),
-                \Filament\Tables\Columns\TextColumn::make('created_at')
-                    ->label('Date')
-                    ->dateTime()
-                    ->since()
-                    ->color('gray'),
+                    ->boolean(),
             ])
             ->filters([
-                \Filament\Tables\Filters\TernaryFilter::make('is_approved')
-                    ->label('Approval Status'),
+                //
             ])
             ->headerActions([
-                CreateAction::make()
-                    ->label('Add Artwork')
-                    ->icon('heroicon-m-plus'),
+                // Creation is better handled at the task level, but we could add it here if needed.
             ])
             ->recordActions([
                 EditAction::make(),
-                \Filament\Actions\Action::make('approve')
-                    ->label('Approve')
-                    ->icon('heroicon-m-check-badge')
-                    ->color('success')
-                    ->hidden(fn($record) => $record->is_approved)
-                    ->action(fn($record) => $record->update(['is_approved' => true])),
                 DeleteAction::make(),
             ])
             ->toolbarActions([

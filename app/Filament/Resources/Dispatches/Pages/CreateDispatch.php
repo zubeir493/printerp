@@ -34,7 +34,7 @@ class CreateDispatch extends CreateRecord
         }
 
         foreach ($this->quantities as $taskId => $quantity) {
-            $qty = (int) $quantity;
+            $qty = (float) $quantity;
 
             if ($qty <= 0) {
                 continue;
@@ -44,6 +44,22 @@ class CreateDispatch extends CreateRecord
                 'job_order_task_id' => $taskId,
                 'quantity' => $qty,
             ]);
+
+            // Record stock movement (consume WIP)
+            $task = \App\Models\JobOrderTask::find($taskId);
+            $wipItem = \App\Models\InventoryItem::where('sku', 'WIP-TASK-' . $taskId)->first();
+            
+            if ($wipItem && $this->record->warehouse_id) {
+                \App\Models\StockMovement::create([
+                    'inventory_item_id' => $wipItem->id,
+                    'warehouse_id' => $this->record->warehouse_id,
+                    'type' => 'dispatch',
+                    'reference_type' => \App\Models\Dispatch::class,
+                    'reference_id' => $this->record->id,
+                    'quantity' => -$qty, // Negative for consumption
+                    'movement_date' => now(),
+                ]);
+            }
         }
     }
 }

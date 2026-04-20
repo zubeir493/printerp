@@ -10,9 +10,9 @@ use App\Models\JobOrder;
 class PaymentAllocationObserver
 {
     /**
-     * Handle the PaymentAllocation "saving" event.
+     * Handle the PaymentAllocation "updating" event.
      */
-    public function saving(PaymentAllocation $paymentAllocation): void
+    public function updating(PaymentAllocation $paymentAllocation): void
     {
         if ($paymentAllocation->payment_id) {
             $hasJournalEntries = JournalEntry::where('source_type', Payment::class)
@@ -21,6 +21,22 @@ class PaymentAllocationObserver
 
             if ($hasJournalEntries) {
                 throw new \RuntimeException('Cannot edit payment allocation after its payment has been posted to the accounting ledger.');
+            }
+        }
+    }
+
+    /**
+     * Handle the PaymentAllocation "deleting" event.
+     */
+    public function deleting(PaymentAllocation $paymentAllocation): void
+    {
+        if ($paymentAllocation->payment_id) {
+            $hasJournalEntries = JournalEntry::where('source_type', Payment::class)
+                ->where('source_id', $paymentAllocation->payment_id)
+                ->exists();
+
+            if ($hasJournalEntries) {
+                throw new \RuntimeException('Cannot delete payment allocation after its payment has been posted to the accounting ledger.');
             }
         }
     }

@@ -44,7 +44,19 @@ class StockAdjustmentsTable
                     ->options(\App\Models\Warehouse::pluck('name', 'id')->toArray()),
             ])
             ->recordActions([
-                EditAction::make(),
+                ActionsAction::make('post')
+                    ->label('Post')
+                    ->color('success')
+                    ->icon('heroicon-o-check-circle')
+                    ->requiresConfirmation()
+                    ->visible(fn ($record) => $record->status === 'draft')
+                    ->action(function ($record) {
+                        $record->post();
+                        \Filament\Notifications\Notification::make()
+                            ->title('Adjustment Posted Successfully')
+                            ->success()
+                            ->send();
+                    }),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([

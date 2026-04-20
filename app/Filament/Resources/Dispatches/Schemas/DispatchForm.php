@@ -28,19 +28,34 @@ class DispatchForm
                         DatePicker::make('delivery_date')
                             ->default(now())
                             ->required(),
+                        Select::make('warehouse_id')
+                            ->label('Dispatch From Warehouse')
+                            ->options(\App\Models\Warehouse::pluck('name', 'id'))
+                            ->default(fn () => \App\Models\Warehouse::where('is_default', true)->value('id'))
+                            ->required()
+                            ->searchable(),
                         Textarea::make('remarks')
                             ->columnSpanFull(),
                     ])->columnSpan(3),
-                Section::make('Items to Deliver')
-                    ->schema(fn (callable $get) =>
+                Section::make('Delivered Items')
+                    ->schema(fn (callable $get, ?\App\Models\Dispatch $record) =>
                         collect(JobOrderTask::where('job_order_id', $get('job_order_id'))->get())
-                            ->map(fn ($task) =>
-                                TextInput::make("quantities.{$task->id}")
-                                    ->label($task->name . " ({$task->remaining_quantity} remaining)")
+                            ->map(function ($task) use ($record) {
+                                $dispatchedQty = 0;
+                                if ($record) {
+                                    $item = $record->dispatchItems()->where('job_order_task_id', $task->id)->first();
+                                    if ($item) {
+                                        $dispatchedQty = $item->quantity;
+                                    }
+                                }
+
+                                return TextInput::make("quantities.{$task->id}")
+                                    ->label($task->name)
                                     ->numeric()
-                                    ->minValue(0)
-                                    ->maxValue($task->remaining_quantity)
-                            )
+                                    ->default($dispatchedQty)
+                                    ->formatStateUsing(fn ($state) => $state ?? $dispatchedQty)
+                                    ->minValue(0);
+                            })
                             ->values()
                             ->all()
                     )->columnSpan(2)

@@ -28,8 +28,7 @@ class ArtworkResource extends Resource
 
     public static function table(Table $table): Table
     {
-        return ArtworksTable::configure($table)
-            ->recordUrl(fn($record) => static::getUrl('view', ['record' => $record]));
+        return ArtworksTable::configure($table);
     }
 
     public static function getRelations(): array
@@ -43,9 +42,6 @@ class ArtworkResource extends Resource
     {
         return [
             'index' => ListArtworks::route('/'),
-            'create' => CreateArtwork::route('/create'),
-            'view' => ViewArtwork::route('/{record}'),
-            'edit' => EditArtwork::route('/{record}/edit'),
         ];
     }
 }

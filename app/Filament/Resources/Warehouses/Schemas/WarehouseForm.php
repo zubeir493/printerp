@@ -17,6 +17,9 @@ class WarehouseForm
                     ->required()
                     ->unique(ignoreRecord: true),
                 TextInput::make('location'),
+                \Filament\Forms\Components\Toggle::make('is_default')
+                    ->label('Is Default Warehouse')
+                    ->default(false),
             ]);
     }
 }

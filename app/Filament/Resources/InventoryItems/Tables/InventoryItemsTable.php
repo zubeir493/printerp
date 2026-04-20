@@ -15,25 +15,38 @@ class InventoryItemsTable
     {
         return $table
             ->columns([
-                TextColumn::make('name')->searchable(),
-                TextColumn::make('sku'),
+                \Filament\Tables\Columns\ImageColumn::make('image')
+                    ->circular()
+                    ->disk('public'),
+                TextColumn::make('name')
+                    ->label('Item')
+                    ->description(fn ($record) => $record->sku)
+                    ->searchable()
+                    ->sortable(),
                 TextColumn::make('type')
                     ->badge()
                     ->color(fn(string $state): string => match ($state) {
                         'raw_material' => 'gray',
                         'finished_good' => 'success',
+                        'wip' => 'info',
+                        'tools' => 'warning',
+                        'spare_parts' => 'primary',
                         default => 'gray',
                     }),
                 TextColumn::make('unit'),
                 TextColumn::make('price')
-                    ->label('Price / Value')
-                    ->suffix(' Birr')
+                    ->label('Value / Price')
+                    ->money('ETB')
+                    ->sortable(),
             ])
             ->filters([
                 \Filament\Tables\Filters\SelectFilter::make('type')
                     ->options([
                         'raw_material' => 'Raw Material',
                         'finished_good' => 'Finished Good',
+                        'wip' => 'Produced (Undispatched)',
+                        'tools' => 'Tools',
+                        'spare_parts' => 'Spare Parts',
                     ]),
             ])
             ->recordActions([

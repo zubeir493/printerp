@@ -48,7 +48,12 @@ class StockAdjustment extends Model
     {
         static::creating(function ($model) {
             if (empty($model->adjustment_number)) {
-                $model->adjustment_number = 'ADJ-' . strtoupper(uniqid());
+                $lastAdjustment = static::orderBy('id', 'desc')->first();
+                $lastNumber = 0;
+                if ($lastAdjustment && preg_match('/ADJ-(\d+)/', $lastAdjustment->adjustment_number, $matches)) {
+                    $lastNumber = (int) $matches[1];
+                }
+                $model->adjustment_number = 'ADJ-' . str_pad($lastNumber + 1, 4, '0', STR_PAD_LEFT);
             }
         });
 

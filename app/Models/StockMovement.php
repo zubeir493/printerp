@@ -42,7 +42,7 @@ class StockMovement extends Model
             'quantity' => 'decimal:2',
             'unit_cost' => 'decimal:2',
             'total_cost' => 'decimal:2',
-            'movement_date' => 'date',
+            'movement_date' => 'datetime',
         ];
     }
 

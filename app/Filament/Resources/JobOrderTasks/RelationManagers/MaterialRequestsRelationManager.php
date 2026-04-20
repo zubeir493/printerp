@@ -1,0 +1,99 @@
+<?php
+
+namespace App\Filament\Resources\JobOrderTasks\RelationManagers;
+
+use Filament\Schemas\Schema;
+use Filament\Resources\RelationManagers\RelationManager;
+use Filament\Tables;
+use Filament\Tables\Table;
+use Filament\Actions\CreateAction;
+use Filament\Actions\EditAction;
+use Filament\Actions\DeleteAction;
+use Filament\Actions\BulkActionGroup;
+use Filament\Actions\DeleteBulkAction;
+
+class MaterialRequestsRelationManager extends RelationManager
+{
+    protected static string $relationship = 'materialRequests';
+
+    protected static ?string $recordTitleAttribute = 'id';
+
+    public function form(Schema $schema): Schema
+    {
+        return $schema
+            ->components([
+                \Filament\Forms\Components\Select::make('inventory_item_id')
+                    ->relationship('inventoryItem', 'name')
+                    ->required(),
+                \Filament\Forms\Components\TextInput::make('required_quantity')
+                    ->numeric()
+                    ->required(),
+                \Filament\Forms\Components\TextInput::make('requested_quantity')
+                    ->numeric()
+                    ->required()
+                    ->default(0),
+                \Filament\Forms\Components\TextInput::make('issued_quantity')
+                    ->numeric()
+                    ->disabled()
+                    ->dehydrated(false)
+                    ->default(0),
+            ]);
+    }
+
+    public function table(Table $table): Table
+    {
+        return $table
+            ->recordTitleAttribute('id')
+            ->columns([
+                Tables\Columns\TextColumn::make('inventoryItem.name')->label('Material'),
+                Tables\Columns\TextColumn::make('required_quantity')->label('Required'),
+                Tables\Columns\TextColumn::make('requested_quantity')->label('Requested'),
+                Tables\Columns\TextColumn::make('issued_quantity')->label('Issued'),
+            ])
+            ->filters([
+                //
+            ])
+            ->headerActions([
+                CreateAction::make(),
+            ])
+            ->recordActions([
+                EditAction::make(),
+                DeleteAction::make(),
+                \Filament\Actions\Action::make('issue')
+                    ->label('Issue')
+                    ->icon('heroicon-o-archive-box-arrow-down')
+                    ->color('success')
+                    ->visible(fn ($record) => $record->requested_quantity > $record->issued_quantity)
+                    ->form([
+                        \Filament\Forms\Components\Select::make('warehouse_id')
+                            ->label('Warehouse')
+                            ->options(\App\Models\Warehouse::pluck('name', 'id'))
+                            ->default(fn () => \App\Models\Warehouse::where('is_default', true)->value('id'))
+                            ->required(),
+                        \Filament\Forms\Components\TextInput::make('quantity')
+                            ->label('Quantity to Issue')
+                            ->numeric()
+                            ->required()
+                            ->default(fn ($record) => $record->requested_quantity - $record->issued_quantity)
+                            ->maxValue(fn ($record) => $record->requested_quantity - $record->issued_quantity),
+                    ])
+                    ->action(function ($record, array $data) {
+                        $inventoryService = app(\App\Services\InventoryService::class);
+                        $inventoryService->consumeStock(
+                            $record->inventory_item_id,
+                            $data['warehouse_id'],
+                            $data['quantity'],
+                            'consumption',
+                            $record->jobOrderTask->job_order_id
+                        );
+                        
+                        $record->increment('issued_quantity', $data['quantity']);
+                    }),
+            ])
+            ->toolbarActions([
+                BulkActionGroup::make([
+                    DeleteBulkAction::make(),
+                ]),
+            ]);
+    }
+}

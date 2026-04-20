@@ -40,7 +40,7 @@ class JobOrderResource extends Resource
     {
         $relations = [
             \App\Filament\Resources\JobOrders\RelationManagers\MaterialsOverviewRelationManager::class,
-            \App\Filament\Resources\JobOrders\RelationManagers\ArtworksRelationManager::class,
+            \App\Filament\Resources\JobOrders\RelationManagers\JobOrderArtworksRelationManager::class,
         ];
 
         if (Auth::check() && in_array(Auth::user()->role?->value ?? Auth::user()->role, [

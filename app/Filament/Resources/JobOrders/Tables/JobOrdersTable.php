@@ -18,11 +18,10 @@ class JobOrdersTable
         return $table
             ->columns([
                 TextColumn::make('job_order_number')
-                    ->label('Job Order #')
-                    ->searchable()
-                    ->sortable(),
-                TextColumn::make('partner.name')
-                    ->label('Customer')
+                    ->label('Job Order')
+                    ->description(fn ($record) => $record->partner?->name)
+                    ->weight('bold')
+                    ->color('primary')
                     ->searchable()
                     ->sortable(),
                 TextColumn::make('status')
@@ -34,12 +33,21 @@ class JobOrdersTable
                         'completed' => 'success',
                         'cancelled' => 'danger',
                     }),
+                TextColumn::make('tasks_summary')
+                    ->label('Tasks')
+                    ->getStateUsing(fn ($record) => $record->jobOrderTasks()->where('status', 'completed')->count() . ' / ' . $record->jobOrderTasks()->count())
+                    ->badge()
+                    ->color('gray'),
                 TextColumn::make('total_price')
-                    ->suffix(' Birr')
+                    ->money('ETB')
                     ->sortable(),
                 \Filament\Tables\Columns\IconColumn::make('advance_paid')
                     ->boolean()
-                    ->label('Adv. Paid'),
+                    ->label('Paid')
+                    ->trueIcon('heroicon-o-check-circle')
+                    ->falseIcon('heroicon-o-x-circle')
+                    ->trueColor('success')
+                    ->falseColor('gray'),
                 // TextColumn::make('balance')
                 //     ->label('Balance')
                 //     ->state(fn($record) => $record->balance)

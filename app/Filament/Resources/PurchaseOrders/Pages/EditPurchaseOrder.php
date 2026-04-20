@@ -29,6 +29,7 @@ class EditPurchaseOrder extends EditRecord
                     Select::make('warehouse_id')
                         ->label('Warehouse')
                         ->options(\App\Models\Warehouse::pluck('name', 'id'))
+                        ->default(fn () => \App\Models\Warehouse::where('is_default', true)->value('id'))
                         ->required(),
                     Repeater::make('items')
                         ->label('Items to Receive')

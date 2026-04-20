@@ -18,6 +18,7 @@ class InventoryItem extends Model
     protected $fillable = [
         'name',
         'sku',
+        'image',
         'unit',
         'purchase_unit',
         'conversion_factor',

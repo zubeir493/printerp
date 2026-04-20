@@ -6,6 +6,7 @@ use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 
 class StockMovementsTable
@@ -15,34 +16,39 @@ class StockMovementsTable
         return $table
             ->columns([
                 TextColumn::make('inventoryItem.name')
-                    ->label('Item')
-                    ->searchable(),
-                TextColumn::make('warehouse.name')
-                    ->searchable(),
+                    ->label('Item / Warehouse')
+                    ->description(fn ($record) => $record->warehouse?->name)
+                    ->weight('bold')
+                    ->searchable()
+                    ->sortable(),
                 TextColumn::make('type')
                     ->badge()
                     ->color(fn(string $state): string => match ($state) {
-                        'purchase', 'transfer_in', 'material_return' => 'success',
-                        'production_output' => 'info',
+                        'purchase', 'transfer_in', 'material_return', 'production_output' => 'success',
                         'transfer_out', 'consumption' => 'danger',
-                        'adjustment' => 'gray',
+                        'dispatch' => 'warning',
+                        'adjustment' => 'primary',
                         default => 'gray',
                     })
                     ->searchable(),
                 TextColumn::make('quantity')
                     ->numeric()
-                    ->sortable(),
+                    ->sortable()
+                    ->color(fn ($state) => $state > 0 ? 'success' : 'danger')
+                    ->weight('bold'),
                 TextColumn::make('movement_date')
-                    ->date()
+                    ->label('Time | Date')
+                    ->dateTime('h:i A | d M')
                     ->sortable(),
             ])
             ->filters([
-                \Filament\Tables\Filters\SelectFilter::make('type')
+                SelectFilter::make('type')
                     ->options([
                         'purchase' => 'Purchase',
                         'consumption' => 'Consumption',
                         'transfer_in' => 'Transfer In',
                         'transfer_out' => 'Transfer Out',
+                        'dispatch' => 'Dispatch',
                         'adjustment' => 'Adjustment',
                         'material_return' => 'Material Return',
                         'production_output' => 'Production Output',

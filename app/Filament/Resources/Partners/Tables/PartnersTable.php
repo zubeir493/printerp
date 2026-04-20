@@ -16,13 +16,22 @@ class PartnersTable
         return $table
             ->columns([
                 TextColumn::make('name')
-                    ->searchable(),
-                TextColumn::make('phone')
-                    ->searchable(),
-                IconColumn::make('is_supplier')
-                    ->boolean(),
-                IconColumn::make('is_customer')
-                    ->boolean(),
+                    ->label('Partner')
+                    ->description(fn ($record) => $record->phone)
+                    ->searchable()
+                    ->sortable(),
+                TextColumn::make('type')
+                    ->badge()
+                    ->getStateUsing(function ($record) {
+                        if ($record->is_customer && $record->is_supplier) return 'Both';
+                        return $record->is_customer ? 'Customer' : 'Supplier';
+                    })
+                    ->color(fn ($state) => match ($state) {
+                        'Customer' => 'success',
+                        'Supplier' => 'info',
+                        'Both' => 'primary',
+                        default => 'gray',
+                    }),
             ])
             ->filters([
                 \Filament\Tables\Filters\SelectFilter::make('partner_type')

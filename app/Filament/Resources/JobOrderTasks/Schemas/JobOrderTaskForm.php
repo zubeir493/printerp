@@ -28,7 +28,7 @@ class JobOrderTaskForm
                     ->required()
                     ->label('Cost')
                     ->numeric()
-                    ->prefix('$'),
+                    ->suffix(' birr'),
                 Repeater::make('paper')
                     ->label('Paper used for this task')
                     ->table([

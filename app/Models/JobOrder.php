@@ -72,19 +72,20 @@ class JobOrder extends Model
         return $this->hasMany(SalesInvoice::class);
     }
 
-    public function artworks(): HasMany
-    {
-        return $this->hasMany(Artwork::class);
-    }
-
-    public function outputs(): HasMany
-    {
-        return $this->hasMany(JobOrderOutput::class);
-    }
 
     public function materialMovements(): MorphMany
     {
         return $this->morphMany(StockMovement::class, 'reference');
+    }
+
+    public function materialRequests(): \Illuminate\Database\Eloquent\Relations\HasManyThrough
+    {
+        return $this->hasManyThrough(MaterialRequest::class, JobOrderTask::class);
+    }
+
+    public function artworks(): \Illuminate\Database\Eloquent\Relations\HasManyThrough
+    {
+        return $this->hasManyThrough(Artwork::class, JobOrderTask::class);
     }
 
     public function paymentAllocations(): MorphMany
@@ -214,9 +215,6 @@ class JobOrder extends Model
                 ->sum(fn($p) => ($p['required_quantity'] ?? 0) + ($p['reserve_quantity'] ?? 0));
 
             $issued = $this->issuedQuantityFor($itemId);
-            $required = (float) $this->jobOrderTasks->flatMap->paper
-                ->where('inventory_item_id', $itemId)
-                ->sum(fn($p) => ($p['required_quantity'] ?? 0) + ($p['reserve_quantity'] ?? 0));
 
             $overconsumed = max(0, $issued - $required);
             $remaining = max(0, $required - $issued);
@@ -254,38 +252,25 @@ class JobOrder extends Model
                 $jobOrder->status === 'production'
             ) {
                 if (!$jobOrder->canStartProduction()) {
-                    throw new \Exception(
-                        'All artworks must be uploaded and approved before production.'
-                    );
+                    // Reset the status back to its original value to prevent the save
+                    $jobOrder->status = $jobOrder->getOriginal('status');
+
+                    \Filament\Notifications\Notification::make()
+                        ->title('Cannot Start Production')
+                        ->body('Artwork must be uploaded and approved before production can begin.')
+                        ->danger()
+                        ->persistent()
+                        ->send();
+
+                    // Throw a validation exception to halt the save and show Filament's error
+                    throw \Illuminate\Validation\ValidationException::withMessages([
+                        'status' => 'Artwork must be uploaded and approved before production.',
+                    ]);
                 }
 
                 $jobOrder->production_started_at = now();
             }
 
-            if (
-                $jobOrder->isDirty('status') &&
-                $jobOrder->status === 'completed' &&
-                $jobOrder->production_mode === 'make_to_stock'
-            ) {
-                foreach ($jobOrder->outputs as $output) {
-                    // Prevent duplicate movements
-                    $exists = StockMovement::where('reference_type', 'JobOrderOutput')
-                        ->where('reference_id', $output->id)
-                        ->exists();
-                        
-                    if (!$exists) {
-                        StockMovement::create([
-                            'inventory_item_id' => $output->inventory_item_id,
-                            'warehouse_id' => $output->warehouse_id,
-                            'type' => 'production_output',
-                            'reference_type' => 'JobOrderOutput',
-                            'reference_id' => $output->id,
-                            'quantity' => abs($output->quantity),
-                            'movement_date' => now(),
-                        ]);
-                    }
-                }
-            }
         });
 
         static::updated(function ($jobOrder) {

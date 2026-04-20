@@ -19,6 +19,7 @@ class Warehouse extends Model
         'name',
         'code',
         'location',
+        'is_default',
     ];
 
     /**
@@ -30,6 +31,7 @@ class Warehouse extends Model
     {
         return [
             'id' => 'integer',
+            'is_default' => 'boolean',
         ];
     }
 
@@ -41,5 +43,14 @@ class Warehouse extends Model
     public function stockMovements(): HasMany
     {
         return $this->hasMany(StockMovement::class);
+    }
+
+    protected static function booted()
+    {
+        static::saving(function ($warehouse) {
+            if ($warehouse->is_default) {
+                static::where('id', '!=', $warehouse->id)->update(['is_default' => false]);
+            }
+        });
     }
 }

@@ -16,129 +16,202 @@ class EditJobOrder extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
-            DeleteAction::make(),
             \Filament\Actions\Action::make('issue_materials')
+                ->label('Issue Materials')
                 ->icon('heroicon-o-archive-box-arrow-down')
                 ->color('warning')
-                ->visible(fn() => $this->record->status === 'production')
-                ->form(fn($record) => [
-                    Select::make('warehouse_id')
+                ->visible(fn ($record) =>
+                    !in_array($record->status, ['completed', 'cancelled']) &&
+                    $record->materialRequests()
+                        ->whereColumn('issued_quantity', '<', 'requested_quantity')
+                        ->whereHas('jobOrderTask', fn ($q) => $q->whereNotIn('status', ['completed', 'cancelled']))
+                        ->exists()
+                )
+                ->form(fn ($record) => [
+                    \Filament\Forms\Components\Select::make('warehouse_id')
                         ->label('Warehouse')
                         ->options(\App\Models\Warehouse::pluck('name', 'id'))
+                        ->default(fn () => \App\Models\Warehouse::where('is_default', true)->value('id'))
                         ->required()
-                        ->searchable(),
-                    Repeater::make('items')
+                        ->searchable()
+                        ->live(),
+                    \Filament\Forms\Components\Repeater::make('items')
                         ->addable(false)
                         ->deletable(false)
                         ->reorderable(false)
                         ->schema([
-                            Select::make('inventory_item_id')
+                            \Filament\Forms\Components\Hidden::make('material_request_id'),
+                            \Filament\Forms\Components\Select::make('inventory_item_id')
                                 ->label('Material')
                                 ->options(\App\Models\InventoryItem::pluck('name', 'id'))
-                                ->required()
                                 ->disabled()
                                 ->dehydrated(),
-                            TextInput::make('quantity')
+                            \Filament\Forms\Components\TextInput::make('quantity')
                                 ->numeric()
                                 ->required()
                                 ->label('Quantity to Issue')
-                                ->hint(fn($get) => "Required: " . ($record->jobOrderTasks->flatMap->paper->where('inventory_item_id', $get('inventory_item_id'))->sum(fn($p) => ($p['required_quantity'] ?? 0) + ($p['reserve_quantity'] ?? 0))) . " | Issued: " . $record->issuedQuantityFor($get('inventory_item_id')))
+                                ->hint(function ($get, $record) {
+                                    $pending = $record->materialRequests->find($get('material_request_id'))?->requested_quantity - $record->materialRequests->find($get('material_request_id'))?->issued_quantity;
+                                    $warehouseId = $get('../../warehouse_id');
+                                    $itemId = $get('inventory_item_id');
+                                    $stock = $warehouseId ? \App\Models\InventoryBalance::where('warehouse_id', $warehouseId)->where('inventory_item_id', $itemId)->value('quantity_on_hand') ?? 0 : 0;
+                                    return "Pending: {$pending} | In Stock: {$stock}";
+                                })
+                                ->maxValue(function ($get, $record) {
+                                    $pending = $record->materialRequests->find($get('material_request_id'))?->requested_quantity - $record->materialRequests->find($get('material_request_id'))?->issued_quantity;
+                                    $warehouseId = $get('../../warehouse_id');
+                                    $itemId = $get('inventory_item_id');
+                                    $stock = $warehouseId ? \App\Models\InventoryBalance::where('warehouse_id', $warehouseId)->where('inventory_item_id', $itemId)->value('quantity_on_hand') ?? 0 : 0;
+                                    return min($pending, $stock);
+                                })
                         ])->columns(2)
-                        ->default(fn() => $record->jobOrderTasks->flatMap->paper->pluck('inventory_item_id')->unique()->map(fn($itemId) => [
-                            'inventory_item_id' => (int)$itemId,
-                            'quantity' => (float)max(0, (($record->jobOrderTasks->flatMap->paper->where('inventory_item_id', $itemId)->sum(fn($p) => ($p['required_quantity'] ?? 0) + ($p['reserve_quantity'] ?? 0))) - $record->issuedQuantityFor($itemId))),
-                        ])->values()->toArray()),
+                        ->default(fn () => $record->materialRequests()
+                            ->whereColumn('issued_quantity', '<', 'requested_quantity')
+                            ->whereHas('jobOrderTask', fn ($q) => $q->whereNotIn('status', ['completed', 'cancelled']))
+                            ->get()
+                            ->map(fn ($mr) => [
+                                'material_request_id' => $mr->id,
+                                'inventory_item_id' => $mr->inventory_item_id,
+                                'quantity' => $mr->requested_quantity - $mr->issued_quantity,
+                            ])->toArray()),
                 ])
-                ->modalHeading('Issue Materials')
-                ->requiresConfirmation(fn($data) => collect($data['items'] ?? [])->contains(function ($item) {
-                    $required = (float) $this->record->jobOrderTasks->flatMap->paper->where('inventory_item_id', $item['inventory_item_id'])->sum(fn($p) => ($p['required_quantity'] ?? 0) + ($p['reserve_quantity'] ?? 0));
-                    $issued = (float) $this->record->issuedQuantityFor($item['inventory_item_id']);
-                    return ($item['quantity'] ?? 0) > 0 && round($issued + ($item['quantity'] ?? 0), 4) > round($required, 4);
-                }))
-                ->modalDescription(fn($data) => collect($data['items'] ?? [])->contains(function ($item) {
-                    $required = (float) $this->record->jobOrderTasks->flatMap->paper->where('inventory_item_id', $item['inventory_item_id'])->sum(fn($p) => ($p['required_quantity'] ?? 0) + ($p['reserve_quantity'] ?? 0));
-                    $issued = (float) $this->record->issuedQuantityFor($item['inventory_item_id']);
-                    return ($item['quantity'] ?? 0) > 0 && round($issued + ($item['quantity'] ?? 0), 4) > round($required, 4);
-                }) ? 'You are issuing more than the required quantity. Do you want to proceed?' : null)
                 ->action(function ($record, $data) {
-                    $inventoryService = app(\App\Services\InventoryService::class);
-                    foreach ($data['items'] as $item) {
-                        $inventoryService->consumeStock(
-                            $item['inventory_item_id'],
-                            $data['warehouse_id'],
-                            $item['quantity'],
-                            'consumption',
-                            $record->id
-                        );
-                    }
+                    try {
+                        $inventoryService = app(\App\Services\InventoryService::class);
+                        \DB::beginTransaction();
+                        foreach ($data['items'] as $item) {
+                            if ($item['quantity'] <= 0) continue;
+                            
+                            $mr = \App\Models\MaterialRequest::find($item['material_request_id']);
+                            
+                            $stock = \App\Models\InventoryBalance::where('warehouse_id', $data['warehouse_id'])
+                                ->where('inventory_item_id', $mr->inventory_item_id)
+                                ->value('quantity_on_hand') ?? 0;
+                            
+                            if ($stock < $item['quantity']) {
+                                throw new \Exception("Insufficient stock for {$mr->inventoryItem->name} in the selected warehouse.");
+                            }
 
-                    if ($record->materialsCompletionPercentage() >= 100) {
-                        $record->update(['materials_fully_issued_at' => now()]);
+                            $inventoryService->consumeStock(
+                                $mr->inventory_item_id,
+                                $data['warehouse_id'],
+                                $item['quantity'],
+                                'consumption',
+                                $record->id
+                            );
+                            $mr->increment('issued_quantity', $item['quantity']);
+                        }
+                        \DB::commit();
+
+                        \Filament\Notifications\Notification::make()
+                            ->title('Materials Issued Successfully')
+                            ->success()
+                            ->send();
+                    } catch (\Exception $e) {
+                        \DB::rollBack();
+                        \Filament\Notifications\Notification::make()
+                            ->title('Error Issuing Materials')
+                            ->body($e->getMessage())
+                            ->danger()
+                            ->persistent()
+                            ->send();
                     }
                 }),
             \Filament\Actions\Action::make('return_materials')
                 ->label('Return Materials')
                 ->icon('heroicon-o-arrow-path')
-                ->color('danger')
-                ->visible(fn() => $this->record->status === 'production')
-                ->form(fn($record) => [
-                    Repeater::make('warehouses')
-                        ->label('Issues by Warehouse')
+                ->color('warning')
+                ->visible(fn ($record) =>
+                    $record->status !== 'completed' &&
+                    $record->materialRequests()
+                        ->where('issued_quantity', '>', 0)
+                        ->whereHas('jobOrderTask', fn ($q) => $q->where('status', '!=', 'completed'))
+                        ->exists()
+                )
+                ->form(fn ($record) => [
+                    \Filament\Forms\Components\Repeater::make('items')
                         ->addable(false)
                         ->deletable(false)
                         ->reorderable(false)
                         ->schema([
-                            \Filament\Forms\Components\Hidden::make('warehouse_id'),
-                            \Filament\Forms\Components\Placeholder::make('warehouse_name')
-                                ->label(fn($get) => \App\Models\Warehouse::find($get('warehouse_id'))?->name ?? 'Unknown Warehouse'),
-                            Repeater::make('items')
-                                ->reorderable(false)
-                                ->addable(false)
-                                ->deletable(false)
-                                ->schema([
-                                    \Filament\Forms\Components\Select::make('inventory_item_id')
-                                        ->label('Material')
-                                        ->options(\App\Models\InventoryItem::pluck('name', 'id'))
-                                        ->disabled()
-                                        ->dehydrated(),
-                                    \Filament\Forms\Components\TextInput::make('quantity')
-                                        ->numeric()
-                                        ->required()
-                                        ->label('Quantity to Return')
-                                        ->hint(fn($get) => "Available: " . abs($get('net_quantity') ?? 0))
-                                        ->maxValue(fn($get) => abs($get('net_quantity') ?? 0)),
-                                    \Filament\Forms\Components\Hidden::make('net_quantity'),
-                                ])->columns(2)
-                        ])
-                        ->default(function () use ($record) {
-                            $balances = $record->issuedBalanceByWarehouse();
-                            return $balances->map(fn($items, $warehouseId) => [
-                                'warehouse_id' => $warehouseId,
-                                'items' => $items->map(fn($m) => [
-                                    'inventory_item_id' => $m->inventory_item_id,
-                                    'net_quantity' => $m->net_quantity,
+                            \Filament\Forms\Components\Hidden::make('material_request_id'),
+                            \Filament\Forms\Components\Hidden::make('original_warehouse_id'),
+                            \Filament\Forms\Components\Select::make('inventory_item_id')
+                                ->label('Material')
+                                ->options(\App\Models\InventoryItem::pluck('name', 'id'))
+                                ->disabled()
+                                ->dehydrated(),
+                            \Filament\Forms\Components\TextInput::make('quantity')
+                                ->numeric()
+                                ->required()
+                                ->label('Quantity to Return')
+                                ->hint(fn ($get) => "Issued: " . $record->materialRequests->find($get('material_request_id'))?->issued_quantity)
+                                ->maxValue(fn ($get) => $record->materialRequests->find($get('material_request_id'))?->issued_quantity)
+                        ])->columns(2)
+                        ->default(fn () => $record->materialRequests()
+                            ->where('issued_quantity', '>', 0)
+                            ->whereHas('jobOrderTask', fn ($q) => $q->where('status', '!=', 'completed'))
+                            ->get()
+                            ->map(function ($mr) use ($record) {
+                                $originalWarehouse = \App\Models\StockMovement::where('type', 'consumption')
+                                    ->where('reference_id', $record->id)
+                                    ->where('inventory_item_id', $mr->inventory_item_id)
+                                    ->orderByDesc('movement_date')
+                                    ->value('warehouse_id');
+
+                                return [
+                                    'material_request_id' => $mr->id,
+                                    'inventory_item_id' => $mr->inventory_item_id,
+                                    'original_warehouse_id' => $originalWarehouse,
                                     'quantity' => 0,
-                                ])->filter(fn($i) => $i['net_quantity'] < 0)->values()->toArray()
-                            ])->filter(fn($w) => count($w['items']) > 0)->values()->toArray();
-                        })
+                                ];
+                            })->toArray()),
                 ])
                 ->action(function ($record, $data) {
-                    $inventoryService = app(\App\Services\InventoryService::class);
-                    foreach ($data['warehouses'] as $warehouseGroup) {
-                        foreach ($warehouseGroup['items'] as $item) {
-                            if (($item['quantity'] ?? 0) <= 0) continue;
+                    try {
+                        $inventoryService = app(\App\Services\InventoryService::class);
+                        $defaultWarehouseId = \App\Models\Warehouse::where('is_default', true)->value('id');
+                        \DB::beginTransaction();
+                        
+                        foreach ($data['items'] as $item) {
+                            if ($item['quantity'] <= 0) continue;
+                            
+                            $mr = \App\Models\MaterialRequest::find($item['material_request_id']);
+                            
+                            if ($item['quantity'] > $mr->issued_quantity) {
+                                throw new \Exception("Cannot return more than what was issued for {$mr->inventoryItem->name}.");
+                            }
+
+                            // Return to original warehouse if known, else default
+                            $returnWarehouseId = $item['original_warehouse_id'] ?? $defaultWarehouseId;
 
                             $inventoryService->receiveStock(
-                                $item['inventory_item_id'],
-                                $warehouseGroup['warehouse_id'],
+                                $mr->inventory_item_id,
+                                $returnWarehouseId,
                                 $item['quantity'],
-                                \App\Models\InventoryItem::find($item['inventory_item_id'])->price,
+                                $mr->inventoryItem->price,
                                 'material_return',
                                 $record->id
                             );
+                            $mr->decrement('issued_quantity', $item['quantity']);
                         }
+                        \DB::commit();
+
+                        \Filament\Notifications\Notification::make()
+                            ->title('Materials Returned Successfully')
+                            ->success()
+                            ->send();
+                    } catch (\Exception $e) {
+                        \DB::rollBack();
+                        \Filament\Notifications\Notification::make()
+                            ->title('Error Returning Materials')
+                            ->body($e->getMessage())
+                            ->danger()
+                            ->persistent()
+                            ->send();
                     }
                 }),
+            DeleteAction::make(),
         ];
     }
 }

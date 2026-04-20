@@ -44,6 +44,9 @@ class StockMovementObserver
         // Reverse the old change
         $this->applyBalanceChange($oldItemId, $oldWarehouseId, -$oldQuantity);
 
+        // Validate that the new change won't go negative before applying
+        $this->validateBalanceChange($newItemId, $newWarehouseId, $newQuantity);
+
         // Apply the new change
         $this->applyBalanceChange($newItemId, $newWarehouseId, $newQuantity);
 

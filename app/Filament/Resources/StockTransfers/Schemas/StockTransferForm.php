@@ -44,6 +44,7 @@ class StockTransferForm
                             ->required(),
                         Select::make('from_warehouse_id')
                             ->relationship('fromWarehouse', 'name')
+                            ->default(fn () => \App\Models\Warehouse::where('is_default', true)->value('id'))
                             ->required()
                             ->reactive()
                             ->columnSpan(3),

@@ -15,15 +15,16 @@ class DispatchesTable
     {
         return $table
             ->columns([
-                TextColumn::make('jobOrder.partner.name')
-                    ->label('Customer')
-                    ->searchable(),
                 TextColumn::make('jobOrder.job_order_number')
-                    ->label('Job Order #')
+                    ->label('Job Order / Customer')
+                    ->description(fn ($record) => $record->jobOrder->partner?->name)
+                    ->weight('bold')
+                    ->color('primary')
                     ->searchable()
                     ->sortable(),
                 TextColumn::make('delivery_date')
-                    ->date()
+                    ->label('Date')
+                    ->date('d M, Y')
                     ->sortable(),
             ])
             ->filters([

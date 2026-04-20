@@ -20,13 +20,46 @@ class StockAdjustmentForm
     {
         return $schema
             ->components([
+                ComponentsSection::make()
+                    ->schema([
+                        TextInput::make('adjustment_number')
+                            ->label('Adjustment Number')
+                            ->default(function () {
+                                $lastAdjustment = \App\Models\StockAdjustment::orderBy('id', 'desc')->first();
+                                $lastNumber = 0;
+                                if ($lastAdjustment && preg_match('/ADJ-(\d+)/', $lastAdjustment->adjustment_number, $matches)) {
+                                    $lastNumber = (int) $matches[1];
+                                }
+                                return 'ADJ-' . str_pad($lastNumber + 1, 4, '0', STR_PAD_LEFT);
+                            })
+                            ->readOnly()
+                            ->required(),
+                        Select::make('warehouse_id')
+                            ->relationship('warehouse', 'name')
+                            ->default(fn () => \App\Models\Warehouse::where('is_default', true)->value('id'))
+                            ->required()
+                            ->reactive()
+                            ->afterStateUpdated(fn($set) => $set('items', []))
+                            ->disabled(fn($record) => $record?->status === 'posted'),
+                        DatePicker::make('adjustment_date')
+                            ->default(now())
+                            ->required()
+                            ->disabled(fn($record) => $record?->status === 'posted'),
+                        TextInput::make('reason')
+                            ->disabled(fn($record) => $record?->status === 'posted'),
+                        TextInput::make('status')
+                            ->default('draft')
+                            ->disabled()
+                            ->dehydrated(),
+                    ])->columnSpan(4)->columns(4),
+
                 Repeater::make('items')
                     ->relationship()
                     ->table([
-                        TableColumn::make('Inventory Item'),
-                        TableColumn::make('Available'),
-                        TableColumn::make('Adjustment'),
-                        TableColumn::make('Result'),
+                        TableColumn::make('Inventory Item')->width('200px')->alignLeft(),
+                        TableColumn::make('Available')->alignLeft(),
+                        TableColumn::make('Adjustment')->alignLeft(),
+                        TableColumn::make('Result')->alignLeft(),
                     ])
                     ->compact()
                     ->schema([
@@ -83,34 +116,9 @@ class StockAdjustmentForm
                             ->required(),
                     ])
                     ->defaultItems(1)
+                    ->minItems(1)
                     ->disabled(fn($record) => $record?->status === 'posted')
                     ->columnSpan(4),
-                ComponentsSection::make()
-                    ->schema([
-                        TextInput::make('adjustment_number')
-                            ->label('Adjustment Number')
-                            ->disabled()
-                            ->dehydrated(false)
-                            ->placeholder('Auto-generated')
-                            ->hidden(fn($operation) => $operation === 'create'),
-                        Select::make('warehouse_id')
-                            ->relationship('warehouse', 'name')
-                            ->required()
-                            ->searchable()
-                            ->reactive()
-                            ->afterStateUpdated(fn($set) => $set('items', []))
-                            ->disabled(fn($record) => $record?->status === 'posted'),
-                        DatePicker::make('adjustment_date')
-                            ->default(now())
-                            ->required()
-                            ->disabled(fn($record) => $record?->status === 'posted'),
-                        TextInput::make('reason')
-                            ->disabled(fn($record) => $record?->status === 'posted'),
-                        TextInput::make('status')
-                            ->default('draft')
-                            ->disabled()
-                            ->dehydrated(),
-                    ])->columnSpan(2),
-            ])->columns(6);
+            ])->columns(5);
     }
 }

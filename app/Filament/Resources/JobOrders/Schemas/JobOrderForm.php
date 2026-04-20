@@ -174,8 +174,7 @@ class JobOrderForm
                             ->cloneable(true)
                             ->minItems(1)
                             ->cloneAction(fn(Action $action) => $action->icon('heroicon-s-document-plus'))
-                            ->live() // 👈 REQUIRED
-                            ->live() // 👈 REQUIRED
+                            ->live() // Required for live total recalculation
                             ->afterStateUpdated(function (UtilitiesGet $get, UtilitiesSet $set) {
                                 $total = collect($get('jobOrderTasks'))
                                     ->sum(fn($job_order_task) => (float) ($job_order_task['unit_cost'] ?? 0));
@@ -272,32 +271,6 @@ class JobOrderForm
                                     ->compact()
                                     ->columnSpanFull(),
                             ]),
-                        Section::make('Production Outputs')
-                            ->description('Specify the finished goods produced and destination warehouse.')
-                            ->visible(fn(UtilitiesGet $get) => $get('production_mode') === 'make_to_stock')
-                            ->schema([
-                                Repeater::make('outputs')
-                                    ->relationship()
-                                    ->schema([
-                                        Select::make('inventory_item_id')
-                                            ->label('Finished Good')
-                                            ->options(\App\Models\InventoryItem::where('type', 'finished_good')->pluck('name', 'id'))
-                                            ->searchable()
-                                            ->required(),
-                                        Select::make('warehouse_id')
-                                            ->label('Destination Warehouse')
-                                            ->relationship('warehouse', 'name')
-                                            ->searchable()
-                                            ->required(),
-                                        TextInput::make('quantity')
-                                            ->numeric()
-                                            ->required()
-                                            ->default(0),
-                                    ])
-                                    ->columns(3)
-                                    ->defaultItems(1)
-                                    ->addActionLabel('Add Output')
-                            ])
                     ])->columnSpan(3),
 
                 Section::make()

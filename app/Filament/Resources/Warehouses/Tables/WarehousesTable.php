@@ -20,6 +20,9 @@ class WarehousesTable
                     ->searchable(),
                 TextColumn::make('location')
                     ->searchable(),
+                \Filament\Tables\Columns\IconColumn::make('is_default')
+                    ->boolean()
+                    ->label('Default'),
             ])
             ->filters([
                 

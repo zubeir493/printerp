@@ -21,8 +21,8 @@ class StockMovementsRelationManager extends RelationManager
             ->recordTitleAttribute('id')
             ->columns([
                 TextColumn::make('movement_date')
-                    ->label('Date')
-                    ->date()
+                    ->label('Time | Date')
+                    ->dateTime('h:i A | d M')
                     ->sortable(),
 
                 TextColumn::make('inventoryItem.name')
@@ -34,11 +34,10 @@ class StockMovementsRelationManager extends RelationManager
                     ->label('Type')
                     ->badge()
                     ->color(fn(string $state): string => match ($state) {
-                        'purchase' => 'success',
-                        'transfer_in', 'material_return' => 'primary',
-                        'production_output' => 'info',
+                        'purchase', 'transfer_in', 'material_return', 'production_output' => 'success',
                         'transfer_out', 'consumption' => 'danger',
-                        'adjustment' => 'gray',
+                        'dispatch' => 'warning',
+                        'adjustment' => 'primary',
                         default => 'gray',
                     })
                     ->sortable(),
@@ -47,27 +46,9 @@ class StockMovementsRelationManager extends RelationManager
                     ->label('Quantity')
                     ->numeric()
                     ->alignEnd()
-                    ->sortable(),
-
-                TextColumn::make('unit_cost')
-                    ->label('Unit Cost')
-                    ->money('ETB')
-                    ->alignEnd()
-                    ->sortable(),
-
-                TextColumn::make('total_cost')
-                    ->label('Total Cost')
-                    ->money('ETB')
-                    ->alignEnd()
-                    ->sortable(),
-
-                TextColumn::make('reference_type')
-                    ->label('Ref Type')
-                    ->toggleable(isToggledHiddenByDefault: true),
-
-                TextColumn::make('reference_id')
-                    ->label('Ref ID')
-                    ->toggleable(isToggledHiddenByDefault: true),
+                    ->sortable()
+                    ->color(fn ($state) => $state > 0 ? 'success' : 'danger')
+                    ->weight('bold'),
             ])
             ->filters([
                 SelectFilter::make('type')
@@ -76,6 +57,7 @@ class StockMovementsRelationManager extends RelationManager
                         'consumption' => 'Consumption',
                         'transfer_in' => 'Transfer In',
                         'transfer_out' => 'Transfer Out',
+                        'dispatch' => 'Dispatch',
                         'adjustment' => 'Adjustment',
                         'material_return' => 'Material Return',
                         'production_output' => 'Production Output',
