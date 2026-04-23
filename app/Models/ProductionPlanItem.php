@@ -9,22 +9,16 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class ProductionPlanItem extends Model
 {
     protected $fillable = [
-        'production_plan_id',
-        'machine_id',
+        'production_plan_machine_id',
         'job_order_task_id',
         'planned_quantity',
         'planned_plates',
         'planned_rounds',
     ];
 
-    public function productionPlan(): BelongsTo
+    public function productionPlanMachine(): BelongsTo
     {
-        return $this->belongsTo(ProductionPlan::class);
-    }
-
-    public function machine(): BelongsTo
-    {
-        return $this->belongsTo(Machine::class);
+        return $this->belongsTo(ProductionPlanMachine::class);
     }
 
     public function jobOrderTask(): BelongsTo

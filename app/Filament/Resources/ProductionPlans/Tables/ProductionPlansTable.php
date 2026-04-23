@@ -3,14 +3,17 @@
 namespace App\Filament\Resources\ProductionPlans\Tables;
 
 use Filament\Tables\Columns\TextColumn;
-use Filament\Actions\BulkActionGroup;
-use Filament\Actions\DeleteBulkAction;
-use Filament\Actions\EditAction;
-use Filament\Actions\ViewAction;
-use Filament\Actions\Action;
+use Filament\Tables\Actions\Action;
+use Filament\Tables\Actions\BulkActionGroup;
+use Filament\Tables\Actions\DeleteBulkAction;
+use Filament\Tables\Actions\EditAction;
+use Filament\Tables\Actions\ViewAction;
 use Filament\Tables\Table;
 use App\Models\ProductionReport;
 use App\Models\ProductionReportItem;
+use Filament\Actions\Action as ActionsAction;
+use Filament\Actions\BulkActionGroup as ActionsBulkActionGroup;
+use Filament\Actions\EditAction as ActionsEditAction;
 
 class ProductionPlansTable
 {
@@ -40,8 +43,8 @@ class ProductionPlansTable
                     ]),
             ])
             ->actions([
-                EditAction::make(),
-                Action::make('report_week')
+                ActionsEditAction::make(),
+                ActionsAction::make('report_week')
                     ->label('Report Week')
                     ->icon('heroicon-o-clipboard-document-check')
                     ->color('success')
@@ -52,27 +55,28 @@ class ProductionPlansTable
                             'status' => 'draft',
                         ]);
 
-                        foreach ($record->items as $item) {
-                            ProductionReportItem::create([
-                                'production_report_id' => $report->id,
-                                'production_plan_item_id' => $item->id,
-                                'date' => now(),
-                                'actual_quantity' => $item->planned_quantity,
-                                'plates_used' => $item->planned_plates,
-                                'rounds' => $item->planned_rounds,
+                        foreach ($record->machines as $planMachine) {
+                            $reportMachine = $report->machines()->create([
+                                'production_plan_machine_id' => $planMachine->id,
                             ]);
+
+                            foreach ($planMachine->items as $item) {
+                                $reportMachine->items()->create([
+                                    'production_plan_item_id' => $item->id,
+                                    'date' => now(),
+                                    'actual_quantity' => $item->planned_quantity,
+                                    'plates_used' => $item->planned_plates,
+                                    'rounds' => $item->planned_rounds,
+                                ]);
+                            }
                         }
 
                         return redirect(\App\Filament\Resources\ProductionReports\ProductionReportResource::getUrl('edit', ['record' => $report]));
                     }),
             ])
             ->recordActions([
-                EditAction::make(),
+                ActionsEditAction::make(),
             ])
-            ->bulkActions([
-                BulkActionGroup::make([
-                    DeleteBulkAction::make(),
-                ]),
-            ]);
+            ->bulkActions([]);
     }
 }

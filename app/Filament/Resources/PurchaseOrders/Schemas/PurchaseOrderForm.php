@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\PurchaseOrders\Schemas;
 
+use Filament\Actions\Action;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Repeater;
@@ -28,10 +29,18 @@ class PurchaseOrderForm
                             ->schema([
                                 TextInput::make('po_number')
                                     ->label('Purchase Order no.')
+                                    ->default(function () {
+                                        $lastPO = \App\Models\PurchaseOrder::orderBy('id', 'desc')->first();
+                                        $lastNumber = 0;
+                                        if ($lastPO && preg_match('/PO-(\d+)/', $lastPO->po_number, $matches)) {
+                                            $lastNumber = (int) $matches[1];
+                                        }
+                                        return 'PO-' . str_pad($lastNumber + 1, 4, '0', STR_PAD_LEFT);
+                                    })
+                                    ->readOnly()
                                     ->required()
                                     ->unique(ignoreRecord: true)
-                                    ->dehydrated()
-                                    ->disabled(fn($get) => $get('status') !== 'draft'),
+                                    ->dehydrated(),
 
                                 Select::make('partner_id')
                                     ->label('Supplier')
@@ -46,25 +55,21 @@ class PurchaseOrderForm
                                         Hidden::make('is_supplier')->default(true),
                                     ])
                                     ->required()
-                                    ->dehydrated()
-                                    ->disabled(fn($get) => $get('status') !== 'draft'),
+                                    ->dehydrated(),
 
                                 DatePicker::make('order_date')
                                     ->default(now())
                                     ->required()
-                                    ->dehydrated()
-                                    ->disabled(fn($get) => $get('status') !== 'draft'),
+                                    ->dehydrated(),
                             ]),
 
                         Repeater::make('purchaseOrderItems')
                             ->relationship('purchaseOrderItems')
                             ->table([
-                                TableColumn::make('Item'),
-                                TableColumn::make('Qty'),
-                                TableColumn::make('Received Qty'),
-                                TableColumn::make('Unit Price'),
-                                TableColumn::make('Total'),
-                                TableColumn::make('Status'),
+                                TableColumn::make('Item')->width('200px')->alignLeft(),
+                                TableColumn::make('Qty')->alignLeft(),
+                                TableColumn::make('Unit Price')->alignLeft(),
+                                TableColumn::make('Total')->alignLeft(),
                             ])
                             ->compact()
                             ->schema([
@@ -78,8 +83,7 @@ class PurchaseOrderForm
                                         $unit = \App\Models\InventoryItem::find($state)?->purchase_unit ?? '';
                                         $set('unit_label', $unit);
                                     })
-                                    ->dehydrated()
-                                    ->disabled(fn($get) => $get('../../status') !== 'draft'),
+                                    ->dehydrated(),
 
                                 TextInput::make('quantity')
                                     ->numeric()
@@ -91,18 +95,9 @@ class PurchaseOrderForm
                                         $set('total', (float)($state ?? 0) * (float)($get('unit_price') ?? 0));
 
                                         // Update subtotal
-                                        $subtotal = collect($get('../../purchaseOrderItems'))->sum(function ($item) {
-                                            return (float)($item['quantity'] ?? 0) * (float)($item['unit_price'] ?? 0);
-                                        });
-                                        $set('../../subtotal', $subtotal);
+                                        \App\Filament\Support\Calculations::updateSubtotal($get, $set, '../../purchaseOrderItems', '../../subtotal');
                                     })
-                                    ->dehydrated()
-                                    ->disabled(fn($get) => $get('../../status') !== 'draft'),
-
-                                TextInput::make('received_quantity')
-                                    ->numeric()
-                                    ->readOnly()
-                                    ->default(0),
+                                    ->dehydrated(),
 
                                 TextInput::make('unit_price')
                                     ->numeric()
@@ -114,79 +109,44 @@ class PurchaseOrderForm
                                         $set('total', (float)($state ?? 0) * (float)($get('quantity') ?? 0));
 
                                         // Update subtotal
-                                        $subtotal = collect($get('../../purchaseOrderItems'))->sum(function ($item) {
-                                            return (float)($item['quantity'] ?? 0) * (float)($item['unit_price'] ?? 0);
-                                        });
-                                        $set('../../subtotal', $subtotal);
+                                        \App\Filament\Support\Calculations::updateSubtotal($get, $set, '../../purchaseOrderItems', '../../subtotal');
                                     })
-                                    ->dehydrated()
-                                    ->disabled(fn($get) => $get('../../status') !== 'draft'),
+                                    ->dehydrated(),
 
                                 TextInput::make('total')
                                     ->numeric()
                                     ->readOnly()
                                     ->dehydrated()
                                     ->suffix('Birr'),
-                                
-                                Select::make('status')
-                                    ->options([
-                                        'pending' => 'Pending',
-                                        'partially_received' => 'Partially Received',
-                                        'received' => 'Received',
-                                        'cancelled' => 'Cancelled',
-                                    ])
-                                    ->default('pending')
-                                    ->required()
-                                    ->live()
-                                    ->afterStateUpdated(function ($get, $set) {
-                                        $items = collect($get('../../purchaseOrderItems') ?? []);
-                                        if ($items->count() > 0) {
-                                            $allFinished = $items->every(fn($i) => in_array($i['status'] ?? 'pending', ['received', 'cancelled']));
-                                            $hasReceived = $items->contains(fn($i) => ($i['status'] ?? 'pending') === 'received');
-
-                                            if ($allFinished) {
-                                                $set('../../status', $hasReceived ? 'received' : 'cancelled');
-                                            } elseif ($items->contains(fn($i) => ($i['status'] ?? 'pending') === 'partially_received')) {
-                                                $current = $get('../../status');
-                                                if (in_array($current, ['draft', 'approved'])) {
-                                                    $set('../../status', 'partially_received');
-                                                }
-                                            }
-                                        }
-                                    }),
                             ])
                             ->columns(5)
                             ->live()
                             ->afterStateUpdated(function ($get, $set) {
-                                $subtotal = collect($get('purchaseOrderItems'))
-                                    ->sum(fn($item) => $item['total'] ?? 0);
-
-                                $set('subtotal', $subtotal);
+                                \App\Filament\Support\Calculations::updateSubtotal($get, $set, 'purchaseOrderItems', 'subtotal');
                             })
                             ->deleteAction(
                                 fn($action) => $action->after(function ($get, $set) {
-                                    $items = collect($get('purchaseOrderItems') ?? []);
-                                    $subtotal = $items->sum(fn($item) => $item['total'] ?? 0);
-                                    $set('subtotal', $subtotal);
-
-                                    if ($items->count() > 0) {
-                                        $allFinished = $items->every(fn($i) => in_array($i['status'] ?? 'pending', ['received', 'cancelled']));
-                                        $hasReceived = $items->contains(fn($i) => ($i['status'] ?? 'pending') === 'received');
-
-                                        if ($allFinished) {
-                                            $set('status', $hasReceived ? 'received' : 'cancelled');
-                                        } elseif ($items->contains(fn($i) => ($i['status'] ?? 'pending') === 'partially_received')) {
-                                            $current = $get('status');
-                                            if (in_array($current, ['draft', 'approved'])) {
-                                                $set('status', 'partially_received');
-                                            }
-                                        }
-                                    }
+                                \App\Filament\Support\Calculations::updateSubtotal($get, $set, 'purchaseOrderItems', 'subtotal');
                                 })
                             )
                             ->defaultItems(1)
-                            ->cloneable()
-                            ->minItems(1),
+                            ->minItems(1)
+                            ->addable(false)
+                            ->extraItemActions([
+                                Action::make('add_item')
+                                    ->label('Add Item')
+                                    ->icon('heroicon-o-plus')
+                                    ->action(function (Repeater $component) {
+                                        $state = $component->getState() ?? [];
+                                        $state[] = [
+                                            'inventory_item_id' => null,
+                                            'quantity' => 0,
+                                            'unit_price' => 0,
+                                            'total' => 0,
+                                        ];
+                                        $component->state($state);
+                                    }),
+                            ]),
 
 
                     ])->columnSpan(3),
@@ -195,13 +155,11 @@ class PurchaseOrderForm
                     ->schema([
                         Select::make('status')
                             ->options([
-                                'draft' => 'Draft',
-                                'approved' => 'Approved',
-                                'partially_received' => 'Partially Received',
-                                'received' => 'Received',
+                                'active' => 'Active',
                                 'cancelled' => 'Cancelled',
+                                'completed' => 'Completed',
                             ])
-                            ->default('draft')
+                            ->default('active')
                             ->required(),
                         TextInput::make('subtotal')
                             ->numeric()

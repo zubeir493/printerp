@@ -16,4 +16,11 @@ class ListInventoryItems extends ListRecords
             CreateAction::make(),
         ];
     }
+
+    protected function getHeaderWidgets(): array
+    {
+        return [
+            \App\Filament\Widgets\InventoryStatsWidget::class,
+        ];
+    }
 }

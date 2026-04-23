@@ -38,5 +38,8 @@ class AppServiceProvider extends ServiceProvider
         // Accounting Triggers
         \App\Models\PurchaseOrder::observe(\App\Observers\PurchaseOrderObserver::class);
         \App\Models\SalesOrder::observe(\App\Observers\SalesOrderObserver::class);
+        
+        \App\Models\Employee::observe(\App\Observers\EmployeeObserver::class);
+        \App\Models\InventoryItem::observe(\App\Observers\InventoryItemObserver::class);
     }
 }

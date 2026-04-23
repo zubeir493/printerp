@@ -27,6 +27,20 @@ class StockOverview extends Page implements HasForms, HasTable
     use Tables\Concerns\InteractsWithTable;
 
     public ?int $warehouse_id = null;
+    
+    public function mount(): void
+    {
+        $this->warehouse_id = \App\Models\Warehouse::where('is_default', true)->value('id');
+    }
+
+    protected function getHeaderWidgets(): array
+    {
+        return [
+            \App\Filament\Widgets\StockOverviewStats::make([
+                'warehouse_id' => $this->warehouse_id,
+            ]),
+        ];
+    }
 
 
     public function form(Schema $form): Schema
@@ -36,6 +50,7 @@ class StockOverview extends Page implements HasForms, HasTable
                 Select::make('warehouse_id')
                     ->label('Warehouse')
                     ->options(\App\Models\Warehouse::pluck('name', 'id'))
+                    ->default(fn() => \App\Models\Warehouse::where('is_default', true)->value('id'))
                     ->required()
                     ->live()
             ]);
@@ -84,12 +99,21 @@ class StockOverview extends Page implements HasForms, HasTable
                     ->sortable(),
 
                 TextColumn::make('total_value')
-                    ->state(
-                        fn($record) =>
-                        (float)$record->quantity_on_hand *
-                            (float)($record->inventoryItem->price ?? 0)
-                    )
-                    ->suffix(' Birr')
+                    ->state(function ($record) {
+                        $item = $record->inventoryItem;
+                        if (!$item || in_array($item->type, ['tools', 'spare_parts', 'wip'])) {
+                            return null;
+                        }
+
+                        $unitPrice = (float)($item->price ?? 0);
+                        if ($item->type === 'raw_material' && (float)($item->conversion_factor ?? 0) > 0) {
+                            $unitPrice = $unitPrice / (float)$item->conversion_factor;
+                        }
+
+                        return (float)$record->quantity_on_hand * $unitPrice;
+                    })
+                    ->placeholder('-')
+                    ->suffix(fn($state) => $state === null ? '' : ' Birr')
                     ->color('success')
                     ->label('Total Value')
                     ->summarize(
@@ -98,7 +122,7 @@ class StockOverview extends Page implements HasForms, HasTable
                             ->using(
                                 fn($query) =>
                                 (float) $query->join('inventory_items', 'inventory_items.id', '=', 'inventory_balances.inventory_item_id')
-                                    ->sum(\Illuminate\Support\Facades\DB::raw('inventory_balances.quantity_on_hand * inventory_items.price'))
+                                    ->sum(\Illuminate\Support\Facades\DB::raw('inventory_balances.quantity_on_hand * (CASE WHEN inventory_items.type = "raw_material" AND inventory_items.conversion_factor > 0 THEN CAST(inventory_items.price AS DECIMAL) / CAST(inventory_items.conversion_factor AS DECIMAL) WHEN inventory_items.type IN ("tools", "spare_parts", "wip") THEN 0 ELSE CAST(inventory_items.price AS DECIMAL) END)'))
                             )
                             ->numeric()
                     ),

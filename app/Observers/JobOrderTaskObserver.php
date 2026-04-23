@@ -20,29 +20,6 @@ class JobOrderTaskObserver
     {
         if ($jobOrder) {
             $jobOrder->recalculateTotal();
-
-            $allTasks = $jobOrder->jobOrderTasks()->get();
-            
-            if ($allTasks->count() > 0) {
-                $allFinished = $allTasks->every(fn($t) => in_array($t->status, ['completed', 'cancelled']));
-                $hasCompleted = $allTasks->contains('status', 'completed');
-
-                if ($allFinished) {
-                    if ($hasCompleted) {
-                        if ($jobOrder->status !== 'completed') {
-                            $jobOrder->update(['status' => 'completed']);
-                        }
-                    } else { // All tasks are cancelled!
-                        if ($jobOrder->status !== 'cancelled') {
-                           $jobOrder->update(['status' => 'cancelled']);
-                        }
-                    }
-                } elseif ($allTasks->contains('status', 'production')) {
-                    if (in_array($jobOrder->status, ['draft', 'design'])) {
-                        $jobOrder->update(['status' => 'production']);
-                    }
-                }
-            }
         }
     }
 }

@@ -14,9 +14,9 @@ class ProductionPlan extends Model
         'week_end' => 'date',
     ];
 
-    public function items(): HasMany
+    public function machines(): HasMany
     {
-        return $this->hasMany(ProductionPlanItem::class);
+        return $this->hasMany(ProductionPlanMachine::class);
     }
 
     public function reports(): HasMany

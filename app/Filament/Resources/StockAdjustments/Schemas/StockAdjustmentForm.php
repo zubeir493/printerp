@@ -36,7 +36,7 @@ class StockAdjustmentForm
                             ->required(),
                         Select::make('warehouse_id')
                             ->relationship('warehouse', 'name')
-                            ->default(fn () => \App\Models\Warehouse::where('is_default', true)->value('id'))
+                            ->default(fn() => \App\Models\Warehouse::where('is_default', true)->value('id'))
                             ->required()
                             ->reactive()
                             ->afterStateUpdated(fn($set) => $set('items', []))
@@ -51,12 +51,12 @@ class StockAdjustmentForm
                             ->default('draft')
                             ->disabled()
                             ->dehydrated(),
-                    ])->columnSpan(4)->columns(4),
+                    ])->columnSpanFull()->columns(5),
 
                 Repeater::make('items')
                     ->relationship()
                     ->table([
-                        TableColumn::make('Inventory Item')->width('200px')->alignLeft(),
+                        TableColumn::make('Inventory Item')->width('300px')->alignLeft(),
                         TableColumn::make('Available')->alignLeft(),
                         TableColumn::make('Adjustment')->alignLeft(),
                         TableColumn::make('Result')->alignLeft(),
@@ -76,7 +76,7 @@ class StockAdjustmentForm
                                         ->first();
                                     $system = $balance ? (float)$balance->quantity_on_hand : 0;
                                     $set('system_quantity', $system);
-                                    
+
                                     $adj = (float)$get('adjustment_quantity');
                                     $set('new_quantity', $system + $adj);
                                     $set('difference', $adj);
@@ -118,7 +118,7 @@ class StockAdjustmentForm
                     ->defaultItems(1)
                     ->minItems(1)
                     ->disabled(fn($record) => $record?->status === 'posted')
-                    ->columnSpan(4),
-            ])->columns(5);
+                    ->columnSpanFull(),
+            ]);
     }
 }

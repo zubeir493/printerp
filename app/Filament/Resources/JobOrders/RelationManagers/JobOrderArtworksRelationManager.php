@@ -77,16 +77,27 @@ class JobOrderArtworksRelationManager extends RelationManager
                     ->searchable(),
                 \Filament\Tables\Columns\IconColumn::make('is_approved')
                     ->label('Status')
-                    ->boolean(),
+                    ->boolean()
+                    ->trueIcon('heroicon-o-check-circle')
+                    ->falseIcon('heroicon-o-clock')
+                    ->trueColor('success')
+                    ->falseColor('warning'),
             ])
             ->filters([
-                //
+                \Filament\Tables\Filters\TernaryFilter::make('is_approved')
+                    ->label('Approval Status'),
             ])
             ->headerActions([
-                // Creation is better handled at the task level, but we could add it here if needed.
+                //
             ])
             ->recordActions([
                 EditAction::make(),
+                \Filament\Actions\Action::make('approve')
+                    ->label('Approve')
+                    ->icon('heroicon-m-check-badge')
+                    ->color('success')
+                    ->hidden(fn($record) => $record->is_approved)
+                    ->action(fn($record) => $record->update(['is_approved' => true])),
                 DeleteAction::make(),
             ])
             ->toolbarActions([

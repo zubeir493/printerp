@@ -64,16 +64,18 @@ class JobOrderForm
                             ->schema([
                                 Select::make('job_type')
                                     ->options([
-                                        'books' => 'Book Printing',
-                                        'packages' => 'Package Printing',
+                                        'books' => 'Books',
+                                        'packages' => 'Packages',
+                                        'vouchers' => 'Vouchers',
+                                        'labels' => 'Labels'
                                     ])
                                     ->reactive()
                                     ->default('packages')
                                     ->required(),
                                 Select::make('production_mode')
                                     ->options([
-                                        'make_to_order' => 'Make to Order (Client Job)',
-                                        'make_to_stock' => 'Make to Stock (Internal)',
+                                        'make_to_order' => 'Client Job',
+                                        'make_to_stock' => 'Internal Job',
                                     ])
                                     ->default('make_to_order')
                                     ->required(),
@@ -93,40 +95,22 @@ class JobOrderForm
                                     ->required()
                                     ->numeric(),
 
-                                TextInput::make('unit_cost')
+                                Select::make('size')
+                                    ->label('Size')
+                                    ->relationship('sizeItem', 'size')
+                                    ->createOptionForm([
+                                        TextInput::make('size')
+                                            ->required(),
+                                    ])
+                                    ->searchable()
+                                    ->required(),
+
+                                TextInput::make('task_cost')
                                     ->label('Cost')
                                     ->numeric()
                                     ->suffix('Birr')
                                     ->required()
                                     ->live(),
-
-                                Select::make('status')
-                                    ->options([
-                                        'pending' => 'Pending',
-                                        'design' => 'Design',
-                                        'production' => 'Production',
-                                        'completed' => 'Completed',
-                                        'cancelled' => 'Cancelled',
-                                    ])
-                                    ->default('pending')
-                                    ->live()
-                                    ->afterStateUpdated(function (UtilitiesGet $get, UtilitiesSet $set) {
-                                        $tasks = collect($get('../../jobOrderTasks') ?? []);
-                                        if ($tasks->count() > 0) {
-                                            $allFinished = $tasks->every(fn($t) => in_array($t['status'] ?? 'pending', ['completed', 'cancelled']));
-                                            $hasCompleted = $tasks->contains(fn($t) => ($t['status'] ?? 'pending') === 'completed');
-
-                                            if ($allFinished) {
-                                                $set('../../status', $hasCompleted ? 'completed' : 'cancelled');
-                                            } elseif ($tasks->contains(fn($t) => ($t['status'] ?? 'pending') === 'production')) {
-                                                $current = $get('../../status');
-                                                if (in_array($current, ['draft', 'design'])) {
-                                                    $set('../../status', 'production');
-                                                }
-                                            }
-                                        }
-                                    })
-                                    ->required(),
 
                                 Repeater::make('paper')
                                     ->label('Paper used for this task')
@@ -161,46 +145,60 @@ class JobOrderForm
                                     ->columns(2)
                                     ->defaultItems(1)
                                     ->columnSpanFull()
-                                    ->addActionLabel('Add paper')
-                                    ->cloneable()
                                     ->addable(false)
                                     ->reorderable(false)
-                                    ->minItems(1),
+                                    ->minItems(1)
+                                    ->extraItemActions([
+                                        Action::make('add_paper')
+                                            ->label('Add Paper')
+                                            ->icon('heroicon-o-plus')
+                                            ->action(function (Repeater $component) {
+                                                $state = $component->getState() ?? [];
+                                                $state[] = [
+                                                    'inventory_item_id' => null,
+                                                    'required_quantity' => 0,
+                                                    'reserve_quantity' => 0,
+                                                    'base_unit' => null,
+                                                ];
+                                                $component->state($state);
+                                            }),
+                                    ]),
                             ])
                             ->columns(4)
                             ->required()
                             ->defaultItems(1)
                             ->addable(false)
-                            ->cloneable(true)
+                            ->extraItemActions([
+                                Action::make('add_task')
+                                    ->label('Add Task')
+                                    ->icon('heroicon-o-plus')
+                                    ->action(function (Repeater $component) {
+                                        $state = $component->getState() ?? [];
+                                        $state[] = [
+                                            'name' => '',
+                                            'quantity' => 0,
+                                            'size' => null,
+                                            'task_cost' => 0,
+                                            'paper' => [
+                                                [
+                                                    'inventory_item_id' => null,
+                                                    'required_quantity' => 0,
+                                                    'reserve_quantity' => 0,
+                                                    'base_unit' => null,
+                                                ]
+                                            ],
+                                        ];
+                                        $component->state($state);
+                                    }),
+                            ])
                             ->minItems(1)
-                            ->cloneAction(fn(Action $action) => $action->icon('heroicon-s-document-plus'))
                             ->live() // Required for live total recalculation
                             ->afterStateUpdated(function (UtilitiesGet $get, UtilitiesSet $set) {
-                                $total = collect($get('jobOrderTasks'))
-                                    ->sum(fn($job_order_task) => (float) ($job_order_task['unit_cost'] ?? 0));
-
-                                $set('total_price', $total);
+                                \App\Filament\Support\Calculations::sumRepeater($get, $set, 'jobOrderTasks', 'total_price', 'task_cost');
                             })
                             ->deleteAction(
                                 fn($action) => $action->after(function (UtilitiesGet $get, UtilitiesSet $set) {
-                                    $tasks = collect($get('jobOrderTasks'));
-                                    $total = $tasks->sum(fn($job_order_task) => (float) ($job_order_task['unit_cost'] ?? 0));
-
-                                    $set('total_price', $total);
-
-                                    if ($tasks->count() > 0) {
-                                        $allFinished = $tasks->every(fn($t) => in_array($t['status'] ?? 'pending', ['completed', 'cancelled']));
-                                        $hasCompleted = $tasks->contains(fn($t) => ($t['status'] ?? 'pending') === 'completed');
-
-                                        if ($allFinished) {
-                                            $set('status', $hasCompleted ? 'completed' : 'cancelled');
-                                        } elseif ($tasks->contains(fn($t) => ($t['status'] ?? 'pending') === 'production')) {
-                                            $current = $get('status');
-                                            if (in_array($current, ['draft', 'design'])) {
-                                                $set('status', 'production');
-                                            }
-                                        }
-                                    }
+                                    \App\Filament\Support\Calculations::sumRepeater($get, $set, 'jobOrderTasks', 'total_price', 'task_cost');
                                 })
                             ),
                         Grid::make(2)
@@ -219,8 +217,6 @@ class JobOrderForm
                                                     Checkbox::make('services.cover_inner_printing')->label('Cover inner printing'),
                                                     Checkbox::make('services.dont_insert_printer_name')->label("Don't insert printer name"),
                                                     Checkbox::make('services.cover_proof')->label("Cover Proof"),
-                                                    Checkbox::make('services.hard_cover')->label("Hard Cover"),
-                                                    Checkbox::make('services.perfect_binding')->label("Perfect Binding"),
                                                     Checkbox::make('services.lamination')->label("Lamination"),
                                                 ])->columns(1)->columnSpan(1),
                                                 Group::make([
@@ -228,10 +224,15 @@ class JobOrderForm
                                                     TextInput::make('services.text_color_no')->label("Number of Colors (Text)"),
                                                     TextInput::make('services.cover_color_no')->label("Number of Colors (Cover)"),
                                                     TextInput::make('services.cover_ups')->label("Cover Ups"),
-                                                    TextInput::make('services.saddle_stitch')->label("Saddle stitch"),
-                                                    TextInput::make('services.eye_hole')->label("Eye hole"),
-                                                    TextInput::make('services.pieces_per_bundle')->label("Pieces per Bundle"),
-                                                    TextInput::make('services.pieces_per_cartoon')->label("Pieces per Cartoon"),
+                                                    TextInput::make('services.books_per_package')->label("Books per Package"),
+                                                    Select::make('services.binding_type')
+                                                        ->label("Binding Type")
+                                                        ->options([
+                                                            'saddle' => 'Saddle stitch',
+                                                            'perfect' => 'Perfect Binding',
+                                                            'hardcover' => 'Hardcover',
+                                                        ])
+                                                        ->required(),
                                                 ])->columnSpan(2)->columns(2),
 
                                             ]),
@@ -267,6 +268,70 @@ class JobOrderForm
                                                     TextInput::make('services.panton_no3')->label('Panton No'),
                                                 ])->columnSpan(2)->columns(2),
                                             ]),
+                                        Grid::make(3)
+                                            ->visible(fn(UtilitiesGet $get) => $get('job_type') === 'labels')
+                                            ->schema([
+                                                Group::make([
+                                                    Checkbox::make('services.new_design')->label('New Design'),
+                                                    Checkbox::make('services.redesign')->label('Redesign'),
+                                                    Checkbox::make('services.new_dielines')->label('New dielines'),
+                                                    Checkbox::make('services.old_dielines')->label('Old dielines'),
+                                                    Checkbox::make('services.full_color')->label('Full color'),
+                                                    Checkbox::make('services.one_side_print')->label('One side print'),
+                                                    Checkbox::make('services.back_side_print')->label('Back side print'),
+                                                    Checkbox::make('services.work_and_turn')->label('Work and Turn'),
+                                                ])->columnSpan(1)->columns(1),
+                                                Group::make([
+                                                    TextInput::make('services.amount_of_colors')->label('Amount of Colors'),
+                                                    TextInput::make('services.printing_ups')->label('Printing Ups'),
+                                                    TextInput::make('services.diecutting_ups')->label('Diecutting Ups'),
+                                                    TextInput::make('services.pieces_per_sheet')->label('Peices per sheet'),
+                                                    CheckboxList::make('services.colors_used')
+                                                        ->options([
+                                                            'C' => 'C',
+                                                            'M' => 'M',
+                                                            'Y' => 'Y',
+                                                            'K' => 'K',
+                                                        ])
+                                                        ->label('Colors Used')
+                                                        ->columns(4),
+                                                    TextInput::make('services.panton_no1')->label('Panton No'),
+                                                    TextInput::make('services.panton_no2')->label('Panton No'),
+                                                    TextInput::make('services.panton_no3')->label('Panton No'),
+                                                ])->columnSpan(2)->columns(2),
+                                            ]),
+                                        Grid::make(3)
+                                            ->visible(fn(UtilitiesGet $get) => $get('job_type') === 'vouchers')
+                                            ->schema([
+                                                Group::make([
+                                                    Checkbox::make('services.new_design')->label('New Design'),
+                                                    Checkbox::make('services.redesign')->label('Redesign'),
+                                                    Checkbox::make('services.new_dielines')->label('New dielines'),
+                                                    Checkbox::make('services.old_dielines')->label('Old dielines'),
+                                                    Checkbox::make('services.full_color')->label('Full color'),
+                                                    Checkbox::make('services.one_side_print')->label('One side print'),
+                                                    Checkbox::make('services.back_side_print')->label('Back side print'),
+                                                    Checkbox::make('services.work_and_turn')->label('Work and Turn'),
+                                                ])->columnSpan(1)->columns(1),
+                                                Group::make([
+                                                    TextInput::make('services.amount_of_colors')->label('Amount of Colors'),
+                                                    TextInput::make('services.printing_ups')->label('Printing Ups'),
+                                                    TextInput::make('services.numbering_ups')->label('Numbering Ups'),
+                                                    TextInput::make('services.pieces_per_sheet')->label('Peices per sheet'),
+                                                    CheckboxList::make('services.colors_used')
+                                                        ->options([
+                                                            'C' => 'C',
+                                                            'M' => 'M',
+                                                            'Y' => 'Y',
+                                                            'K' => 'K',
+                                                        ])
+                                                        ->label('Colors Used')
+                                                        ->columns(4),
+                                                    TextInput::make('services.panton_no1')->label('Panton No'),
+                                                    TextInput::make('services.panton_no2')->label('Panton No'),
+                                                    TextInput::make('services.panton_no3')->label('Panton No'),
+                                                ])->columnSpan(2)->columns(2),
+                                            ]),
                                     ])
                                     ->compact()
                                     ->columnSpanFull(),
@@ -284,16 +349,32 @@ class JobOrderForm
                                 'cancelled' => 'Cancelled',
                             ])
                             ->default('draft')
-                            ->helperText('This status automatically updates based on task progress, but can be manually overridden.')
+                            ->helperText('Status of the overall job order.')
                             ->required(),
                         FileUpload::make('cost_calc_file')
                             ->label('Cost Calculation File')
-                            ->directory('cost_calculations')
+                            ->disk('s3')
+                            ->directory('job-orders/cost-calculations')
                             ->acceptedFileTypes(['application/csv', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/vnd.ms-excel'])
                             ->maxSize(1024)
                             ->panelAspectRatio('3:1')
                             ->downloadable()
                             ->required(),
+                        \Filament\Forms\Components\Placeholder::make('download_cost_calc')
+                            ->label('')
+                            ->hidden(fn ($record) => empty($record?->cost_calc_file))
+                            ->content(function ($record) {
+                                if (!$record || empty($record->cost_calc_file)) return null;
+                                $url = \Illuminate\Support\Facades\Storage::disk('s3')->temporaryUrl($record->cost_calc_file, now()->addMinutes(60));
+                                return new \Illuminate\Support\HtmlString(
+                                    '<div class="p-4 bg-gray-50 rounded-xl border border-dashed border-gray-300 flex items-center justify-center">' .
+                                    '<a href="' . $url . '" target="_blank" class="text-primary-600 hover:text-primary-800 font-medium flex items-center gap-2">' .
+                                    '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>' .
+                                    'Download Calculation File' .
+                                    '</a>' .
+                                    '</div>'
+                                );
+                            }),
                         Toggle::make('advance_paid')
                             ->label('Advance Paid?')
                             ->disabled()

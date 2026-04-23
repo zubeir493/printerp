@@ -78,16 +78,35 @@ class MaterialRequestsRelationManager extends RelationManager
                             ->maxValue(fn ($record) => $record->requested_quantity - $record->issued_quantity),
                     ])
                     ->action(function ($record, array $data) {
-                        $inventoryService = app(\App\Services\InventoryService::class);
-                        $inventoryService->consumeStock(
-                            $record->inventory_item_id,
-                            $data['warehouse_id'],
-                            $data['quantity'],
-                            'consumption',
-                            $record->jobOrderTask->job_order_id
-                        );
-                        
-                        $record->increment('issued_quantity', $data['quantity']);
+                        try {
+                            $inventoryService = app(\App\Services\InventoryService::class);
+                            \DB::beginTransaction();
+                            
+                            $inventoryService->consumeStock(
+                                $record->inventory_item_id,
+                                $data['warehouse_id'],
+                                $data['quantity'],
+                                'consumption',
+                                $record->jobOrderTask->job_order_id
+                            );
+                            
+                            $record->increment('issued_quantity', $data['quantity']);
+                            
+                            \DB::commit();
+
+                            \Filament\Notifications\Notification::make()
+                                ->title('Materials issued successfully')
+                                ->success()
+                                ->send();
+                        } catch (\Exception $e) {
+                            \DB::rollBack();
+                            \Filament\Notifications\Notification::make()
+                                ->title('Error issuing materials')
+                                ->body($e->getMessage())
+                                ->danger()
+                                ->persistent()
+                                ->send();
+                        }
                     }),
             ])
             ->toolbarActions([

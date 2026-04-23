@@ -15,6 +15,11 @@ class PaymentAllocationsRelationManager extends RelationManager
 {
     protected static string $relationship = 'paymentAllocations';
 
+    public static function canViewForRecord($ownerRecord, string $pageClass): bool
+    {
+        return $ownerRecord->payment_type === 'standard';
+    }
+
     public function form(Schema $schema): Schema
     {
         return $schema

@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\JobOrderTasks\Schemas;
 
+use Filament\Actions\Action;
 use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Repeater\TableColumn;
@@ -63,11 +64,32 @@ class JobOrderTaskForm
                     ->defaultItems(1)
                     ->columnSpanFull()
                     ->addActionLabel('Add paper')
-                    ->cloneable()
+                    ->extraItemActions([
+                        Action::make('add_task')
+                            ->label('Add Paper')
+                            ->icon('heroicon-o-plus')
+                            ->action(function (Repeater $component) {
+                                $state = $component->getState() ?? [];
+                                $state[] = [
+                                    'inventory_item_id' => null,
+                                    'required_quantity' => 0,
+                                    'reserve_quantity' => 0,
+                                    'base_unit' => null,
+                                ];
+                                $component->state($state);
+                            }),
+                    ])
                     ->addable(false)
                     ->reorderable(false)
                     ->minItems(1),
-                TextInput::make('status')
+                Select::make('status')
+                    ->options([
+                        'pending' => 'Pending',
+                        'design' => 'Design',
+                        'production' => 'Production',
+                        'completed' => 'Completed',
+                        'cancelled' => 'Cancelled',
+                    ])
                     ->required()
                     ->default('pending'),
             ]);

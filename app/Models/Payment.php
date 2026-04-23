@@ -24,6 +24,8 @@ class Payment extends Model
         'direction',
         'method',
         'reference',
+        'payment_type',
+        'account_id',
     ];
 
     /**
@@ -38,12 +40,18 @@ class Payment extends Model
             'partner_id' => 'integer',
             'payment_date' => 'date',
             'amount' => 'decimal:2',
+            'account_id' => 'integer',
         ];
     }
 
     public function partner(): BelongsTo
     {
         return $this->belongsTo(Partner::class);
+    }
+
+    public function account(): BelongsTo
+    {
+        return $this->belongsTo(Account::class);
     }
 
     public function paymentAllocations(): HasMany

@@ -15,9 +15,14 @@ class InventoryItemsTable
     {
         return $table
             ->columns([
-                \Filament\Tables\Columns\ImageColumn::make('image')
-                    ->circular()
-                    ->disk('public'),
+                \Filament\Tables\Columns\TextColumn::make('image')
+                    ->label('Image')
+                    ->formatStateUsing(function ($state) {
+                        if (!$state) return null;
+                        $url = \Illuminate\Support\Facades\Storage::disk('s3')->temporaryUrl($state, now()->addMinutes(10));
+                        return new \Illuminate\Support\HtmlString('<img src="' . $url . '" class="w-10 h-10 rounded-lg object-cover" />');
+                    })
+                    ->html(),
                 TextColumn::make('name')
                     ->label('Item')
                     ->description(fn ($record) => $record->sku)

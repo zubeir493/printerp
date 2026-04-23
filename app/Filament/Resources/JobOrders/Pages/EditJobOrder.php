@@ -19,19 +19,20 @@ class EditJobOrder extends EditRecord
             \Filament\Actions\Action::make('issue_materials')
                 ->label('Issue Materials')
                 ->icon('heroicon-o-archive-box-arrow-down')
-                ->color('warning')
-                ->visible(fn ($record) =>
+                ->color('primary')
+                ->visible(
+                    fn($record) =>
                     !in_array($record->status, ['completed', 'cancelled']) &&
-                    $record->materialRequests()
+                        $record->materialRequests()
                         ->whereColumn('issued_quantity', '<', 'requested_quantity')
-                        ->whereHas('jobOrderTask', fn ($q) => $q->whereNotIn('status', ['completed', 'cancelled']))
+                        ->whereHas('jobOrderTask', fn($q) => $q->whereNotIn('status', ['completed', 'cancelled']))
                         ->exists()
                 )
-                ->form(fn ($record) => [
+                ->form(fn($record) => [
                     \Filament\Forms\Components\Select::make('warehouse_id')
                         ->label('Warehouse')
                         ->options(\App\Models\Warehouse::pluck('name', 'id'))
-                        ->default(fn () => \App\Models\Warehouse::where('is_default', true)->value('id'))
+                        ->default(fn() => \App\Models\Warehouse::where('is_default', true)->value('id'))
                         ->required()
                         ->searchable()
                         ->live(),
@@ -65,11 +66,11 @@ class EditJobOrder extends EditRecord
                                     return min($pending, $stock);
                                 })
                         ])->columns(2)
-                        ->default(fn () => $record->materialRequests()
+                        ->default(fn() => $record->materialRequests()
                             ->whereColumn('issued_quantity', '<', 'requested_quantity')
-                            ->whereHas('jobOrderTask', fn ($q) => $q->whereNotIn('status', ['completed', 'cancelled']))
+                            ->whereHas('jobOrderTask', fn($q) => $q->whereNotIn('status', ['completed', 'cancelled']))
                             ->get()
-                            ->map(fn ($mr) => [
+                            ->map(fn($mr) => [
                                 'material_request_id' => $mr->id,
                                 'inventory_item_id' => $mr->inventory_item_id,
                                 'quantity' => $mr->requested_quantity - $mr->issued_quantity,
@@ -81,13 +82,13 @@ class EditJobOrder extends EditRecord
                         \DB::beginTransaction();
                         foreach ($data['items'] as $item) {
                             if ($item['quantity'] <= 0) continue;
-                            
+
                             $mr = \App\Models\MaterialRequest::find($item['material_request_id']);
-                            
+
                             $stock = \App\Models\InventoryBalance::where('warehouse_id', $data['warehouse_id'])
                                 ->where('inventory_item_id', $mr->inventory_item_id)
                                 ->value('quantity_on_hand') ?? 0;
-                            
+
                             if ($stock < $item['quantity']) {
                                 throw new \Exception("Insufficient stock for {$mr->inventoryItem->name} in the selected warehouse.");
                             }
@@ -121,14 +122,15 @@ class EditJobOrder extends EditRecord
                 ->label('Return Materials')
                 ->icon('heroicon-o-arrow-path')
                 ->color('warning')
-                ->visible(fn ($record) =>
+                ->visible(
+                    fn($record) =>
                     $record->status !== 'completed' &&
-                    $record->materialRequests()
+                        $record->materialRequests()
                         ->where('issued_quantity', '>', 0)
-                        ->whereHas('jobOrderTask', fn ($q) => $q->where('status', '!=', 'completed'))
+                        ->whereHas('jobOrderTask', fn($q) => $q->where('status', '!=', 'completed'))
                         ->exists()
                 )
-                ->form(fn ($record) => [
+                ->form(fn($record) => [
                     \Filament\Forms\Components\Repeater::make('items')
                         ->addable(false)
                         ->deletable(false)
@@ -145,12 +147,12 @@ class EditJobOrder extends EditRecord
                                 ->numeric()
                                 ->required()
                                 ->label('Quantity to Return')
-                                ->hint(fn ($get) => "Issued: " . $record->materialRequests->find($get('material_request_id'))?->issued_quantity)
-                                ->maxValue(fn ($get) => $record->materialRequests->find($get('material_request_id'))?->issued_quantity)
+                                ->hint(fn($get) => "Issued: " . $record->materialRequests->find($get('material_request_id'))?->issued_quantity)
+                                ->maxValue(fn($get) => $record->materialRequests->find($get('material_request_id'))?->issued_quantity)
                         ])->columns(2)
-                        ->default(fn () => $record->materialRequests()
+                        ->default(fn() => $record->materialRequests()
                             ->where('issued_quantity', '>', 0)
-                            ->whereHas('jobOrderTask', fn ($q) => $q->where('status', '!=', 'completed'))
+                            ->whereHas('jobOrderTask', fn($q) => $q->where('status', '!=', 'completed'))
                             ->get()
                             ->map(function ($mr) use ($record) {
                                 $originalWarehouse = \App\Models\StockMovement::where('type', 'consumption')
@@ -172,12 +174,12 @@ class EditJobOrder extends EditRecord
                         $inventoryService = app(\App\Services\InventoryService::class);
                         $defaultWarehouseId = \App\Models\Warehouse::where('is_default', true)->value('id');
                         \DB::beginTransaction();
-                        
+
                         foreach ($data['items'] as $item) {
                             if ($item['quantity'] <= 0) continue;
-                            
+
                             $mr = \App\Models\MaterialRequest::find($item['material_request_id']);
-                            
+
                             if ($item['quantity'] > $mr->issued_quantity) {
                                 throw new \Exception("Cannot return more than what was issued for {$mr->inventoryItem->name}.");
                             }

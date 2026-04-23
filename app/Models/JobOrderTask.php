@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use App\Models\Size;
 
 class JobOrderTask extends Model
 {
@@ -19,9 +20,10 @@ class JobOrderTask extends Model
         'job_order_id',
         'name',
         'quantity',
-        'unit_cost',
+        'task_cost',
         'paper',
         'status',
+        'size',
     ];
 
     /**
@@ -34,7 +36,7 @@ class JobOrderTask extends Model
         return [
             'id' => 'integer',
             'job_order_id' => 'integer',
-            'unit_cost' => 'decimal:2',
+            'task_cost' => 'decimal:2',
             'paper' => 'array',
         ];
     }
@@ -49,6 +51,10 @@ class JobOrderTask extends Model
         return $this->hasMany(DispatchItem::class);
     }
 
+    public function sizeItem(): BelongsTo
+    {
+        return $this->belongsTo(Size::class, 'size');
+    }
     public function getProducedQuantityAttribute(): int|float
     {
         return (float) \App\Models\StockMovement::where('reference_type', static::class)

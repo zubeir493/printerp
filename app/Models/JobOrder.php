@@ -10,6 +10,10 @@ use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
+use App\Observers\JobOrderObserver;
+use Illuminate\Database\Eloquent\Attributes\ObservedBy;
+
+#[ObservedBy(JobOrderObserver::class)]
 class JobOrder extends Model
 {
     use HasFactory;
@@ -116,7 +120,7 @@ class JobOrder extends Model
     public function recalculateTotal(): void
     {
         $this->updateQuietly([
-            'total_price' => (float) $this->jobOrderTasks()->sum('unit_cost'),
+            'total_price' => (float) $this->jobOrderTasks()->sum('task_cost'),
         ]);
     }
 
@@ -177,19 +181,12 @@ class JobOrder extends Model
 
     public function materialsCompletionPercentage(): float
     {
-        $totalRequired = 0;
-        $totalIssued = 0;
+        $summary = $this->materials_summary;
+        
+        if (empty($summary)) return 0;
 
-        foreach ($this->jobOrderTasks as $task) {
-            foreach ($task->paper ?? [] as $material) {
-                $req = ($material['required_quantity'] ?? 0) + ($material['reserve_quantity'] ?? 0);
-                $totalRequired += $req;
-                $totalIssued += min(
-                    $this->issuedQuantityFor($material['inventory_item_id']),
-                    $req
-                );
-            }
-        }
+        $totalRequired = collect($summary)->sum('required');
+        $totalIssued = collect($summary)->sum('issued');
 
         if ($totalRequired == 0) return 0;
 
@@ -198,23 +195,42 @@ class JobOrder extends Model
 
     public function getMaterialsSummaryAttribute(): array
     {
-        $summary = [];
-        
         if (!$this->relationLoaded('jobOrderTasks')) {
             $this->load('jobOrderTasks');
         }
 
-        $uniqueMaterials = $this->jobOrderTasks->flatMap->paper->pluck('inventory_item_id')->unique()->filter();
+        $allPaper = $this->jobOrderTasks->flatMap->paper;
+        $uniqueMaterialIds = $allPaper->pluck('inventory_item_id')->unique()->filter()->toArray();
 
-        foreach ($uniqueMaterials as $itemId) {
-            $item = \App\Models\InventoryItem::find($itemId);
+        if (empty($uniqueMaterialIds)) {
+            return [];
+        }
+
+        // 1. Bulk fetch all relevant Inventory Items
+        $items = \App\Models\InventoryItem::whereIn('id', $uniqueMaterialIds)->get()->keyBy('id');
+
+        // 2. Bulk fetch all relevant Stock Movements for this JO
+        $movements = StockMovement::where(function ($query) {
+                $query->where('type', 'consumption')
+                    ->orWhere('type', 'material_return');
+            })
+            ->where('reference_id', $this->id)
+            ->whereIn('inventory_item_id', $uniqueMaterialIds)
+            ->get()
+            ->groupBy('inventory_item_id');
+
+        $summary = [];
+
+        foreach ($uniqueMaterialIds as $itemId) {
+            $item = $items->get($itemId);
             if (!$item) continue;
 
-            $required = (float) $this->jobOrderTasks->flatMap->paper
-                ->where('inventory_item_id', $itemId)
+            $required = (float) $allPaper->where('inventory_item_id', $itemId)
                 ->sum(fn($p) => ($p['required_quantity'] ?? 0) + ($p['reserve_quantity'] ?? 0));
 
-            $issued = $this->issuedQuantityFor($itemId);
+            // Calculate issued quantity from bulk movements
+            $itemMovements = $movements->get($itemId, collect());
+            $issued = round(abs((float) $itemMovements->sum('quantity')), 4);
 
             $overconsumed = max(0, $issued - $required);
             $remaining = max(0, $required - $issued);
@@ -233,50 +249,4 @@ class JobOrder extends Model
         return $summary;
     }
 
-    protected static function booted()
-    {
-        static::creating(function ($jobOrder) {
-            if (!$jobOrder->job_order_number) {
-                $lastJobOrder = static::orderBy('id', 'desc')->first();
-                $lastNumber = 0;
-                if ($lastJobOrder && preg_match('/JO-(\d+)/', $lastJobOrder->job_order_number, $matches)) {
-                    $lastNumber = (int) $matches[1];
-                }
-                $jobOrder->job_order_number = 'JO-' . str_pad($lastNumber + 1, 4, '0', STR_PAD_LEFT);
-            }
-        });
-
-        static::updating(function ($jobOrder) {
-            if (
-                $jobOrder->isDirty('status') &&
-                $jobOrder->status === 'production'
-            ) {
-                if (!$jobOrder->canStartProduction()) {
-                    // Reset the status back to its original value to prevent the save
-                    $jobOrder->status = $jobOrder->getOriginal('status');
-
-                    \Filament\Notifications\Notification::make()
-                        ->title('Cannot Start Production')
-                        ->body('Artwork must be uploaded and approved before production can begin.')
-                        ->danger()
-                        ->persistent()
-                        ->send();
-
-                    // Throw a validation exception to halt the save and show Filament's error
-                    throw \Illuminate\Validation\ValidationException::withMessages([
-                        'status' => 'Artwork must be uploaded and approved before production.',
-                    ]);
-                }
-
-                $jobOrder->production_started_at = now();
-            }
-
-        });
-
-        static::updated(function ($jobOrder) {
-            if ($jobOrder->wasChanged('status') && $jobOrder->status === 'cancelled') {
-                $jobOrder->jobOrderTasks()->update(['status' => 'cancelled']);
-            }
-        });
-    }
 }

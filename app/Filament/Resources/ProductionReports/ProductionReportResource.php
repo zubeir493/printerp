@@ -40,11 +40,15 @@ class ProductionReportResource extends Resource
         ];
     }
 
+    public static function canCreate(): bool
+    {
+        return false;
+    }
+
     public static function getPages(): array
     {
         return [
             'index' => ListProductionReports::route('/'),
-            'create' => CreateProductionReport::route('/create'),
             'view' => \App\Filament\Resources\ProductionReports\Pages\ViewProductionReport::route('/{record}'),
             'edit' => EditProductionReport::route('/{record}/edit'),
         ];

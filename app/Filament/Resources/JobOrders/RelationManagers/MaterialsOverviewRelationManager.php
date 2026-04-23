@@ -30,15 +30,16 @@ class MaterialsOverviewRelationManager extends RelationManager
                 
                 Tables\Columns\TextColumn::make('required_quantity')
                     ->label('Required Qty')
-                    ->numeric(2),
-
+                    ->numeric(2)
+                    ->suffix(fn($record) => ' ' . ($record->inventoryItem?->unit ?? '')),
                 Tables\Columns\TextColumn::make('requested_quantity')
                     ->label('Requested Qty')
-                    ->numeric(2),
-
+                    ->numeric(2)
+                    ->suffix(fn($record) => ' ' . ($record->inventoryItem?->unit ?? '')),
                 Tables\Columns\TextColumn::make('issued_quantity')
                     ->label('Issued Qty')
-                    ->numeric(2),
+                    ->numeric(2)
+                    ->suffix(fn($record) => ' ' . ($record->inventoryItem?->unit ?? '')),
             ])
             ->filters([
                 //

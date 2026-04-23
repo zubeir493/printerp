@@ -66,12 +66,20 @@ class JobOrdersRelationManager extends RelationManager
                     ->date()
                     ->sortable(),
                 IconColumn::make('advance_paid')
-                    ->boolean(),
+                    ->boolean()
+                    ->getStateUsing(fn($record) => $record->paymentAllocations()->exists())
+                    ->label('Adv. Paid'),
                 TextColumn::make('total_price')
                     ->suffix(' Birr')
                     ->sortable(),
                 TextColumn::make('status')
-                    ->searchable(),
+                    ->badge()
+                    ->color(fn(string $state): string => match ($state) {
+                        'active' => 'primary',
+                        'completed' => 'success',
+                        'cancelled' => 'danger',
+                        default => 'gray',
+                    }),
             ])
             ->filters([
                 //

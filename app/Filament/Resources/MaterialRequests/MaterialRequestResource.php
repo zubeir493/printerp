@@ -23,10 +23,7 @@ class MaterialRequestResource extends Resource
 {
     protected static ?string $model = MaterialRequest::class;
 
-        protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedBriefcase;
-
-
-    protected static string|\UnitEnum|null $navigationGroup = 'Production';
+    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedArchiveBoxArrowDown;
 
     public static function form(Schema $schema): Schema
     {
@@ -37,7 +34,7 @@ class MaterialRequestResource extends Resource
                         \Filament\Forms\Components\Select::make('job_order_task_id')
                             ->label('Production Task')
                             ->relationship('jobOrderTask', 'name')
-                            ->getOptionLabelFromRecordUsing(fn ($record) => "{$record->name} ({$record->jobOrder->job_order_number})")
+                            ->getOptionLabelFromRecordUsing(fn($record) => "{$record->name} ({$record->jobOrder->job_order_number})")
                             ->required()
                             ->searchable()
                             ->preload(),
@@ -74,7 +71,7 @@ class MaterialRequestResource extends Resource
             ->columns([
                 TextColumn::make('jobOrderTask.name')
                     ->label('Task')
-                    ->description(fn ($record) => $record->jobOrderTask->jobOrder->job_order_number)
+                    ->description(fn($record) => $record->jobOrderTask->jobOrder->job_order_number)
                     ->weight('bold')
                     ->color('primary')
                     ->searchable(),
@@ -89,14 +86,14 @@ class MaterialRequestResource extends Resource
                         if ($record->issued_quantity > 0) return 'Partial';
                         return 'Pending';
                     })
-                    ->color(fn ($state) => match ($state) {
+                    ->color(fn($state) => match ($state) {
                         'Issued' => 'success',
                         'Partial' => 'warning',
                         default => 'gray',
                     }),
                 TextColumn::make('requested_quantity')
                     ->label('Qty')
-                    ->formatStateUsing(fn ($state, $record) => "{$record->issued_quantity} / {$state}")
+                    ->formatStateUsing(fn($state, $record) => "{$record->issued_quantity} / {$state}")
                     ->description('Issued / Requested')
                     ->alignEnd(),
             ])
@@ -107,7 +104,7 @@ class MaterialRequestResource extends Resource
                     ->searchable()
                     ->query(function ($query, array $data) {
                         if ($data['value']) {
-                            $query->whereHas('jobOrderTask', fn ($q) => $q->where('job_order_id', $data['value']));
+                            $query->whereHas('jobOrderTask', fn($q) => $q->where('job_order_id', $data['value']));
                         }
                     }),
                 \Filament\Tables\Filters\SelectFilter::make('status')
@@ -127,25 +124,25 @@ class MaterialRequestResource extends Resource
                     ->label('Issue')
                     ->icon('heroicon-m-archive-box-arrow-down')
                     ->color('warning')
-                    ->hidden(fn ($record) => $record->issued_quantity >= $record->requested_quantity)
+                    ->hidden(fn($record) => $record->issued_quantity >= $record->requested_quantity)
                     ->form([
                         \Filament\Forms\Components\Select::make('warehouse_id')
                             ->label('Warehouse')
                             ->options(\App\Models\Warehouse::pluck('name', 'id'))
-                            ->default(fn () => \App\Models\Warehouse::where('is_default', true)->value('id'))
+                            ->default(fn() => \App\Models\Warehouse::where('is_default', true)->value('id'))
                             ->required(),
                         TextInput::make('quantity')
                             ->label('Quantity to Issue')
                             ->numeric()
                             ->required()
-                            ->default(fn ($record) => $record->requested_quantity - $record->issued_quantity)
-                            ->maxValue(fn ($record) => $record->requested_quantity - $record->issued_quantity),
+                            ->default(fn($record) => $record->requested_quantity - $record->issued_quantity)
+                            ->maxValue(fn($record) => $record->requested_quantity - $record->issued_quantity),
                     ])
                     ->action(function ($record, array $data) {
                         try {
                             \DB::beginTransaction();
                             $inventoryService = app(\App\Services\InventoryService::class);
-                            
+
                             $inventoryService->consumeStock(
                                 $record->inventory_item_id,
                                 $data['warehouse_id'],

@@ -15,8 +15,8 @@ class ProductionReport extends Model
         return $this->belongsTo(ProductionPlan::class);
     }
 
-    public function items(): HasMany
+    public function machines(): HasMany
     {
-        return $this->hasMany(ProductionReportItem::class);
+        return $this->hasMany(ProductionReportMachine::class);
     }
 }

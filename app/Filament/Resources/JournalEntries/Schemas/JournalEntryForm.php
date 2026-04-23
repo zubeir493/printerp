@@ -50,8 +50,7 @@ class JournalEntryForm
                                     '🤝 Partners' => \App\Models\Partner::pluck('name', 'id')
                                         ->mapWithKeys(fn($n, $id) => ["Partner:{$id}" => "{$n}"])
                                         ->toArray(),
-                                    '📑 Job Orders' => \App\Models\JobOrder::whereIn('status', ['design', 'production'])
-                                        ->pluck('job_order_number', 'id')
+                                    '📑 Job Orders' => \App\Models\JobOrder::pluck('job_order_number', 'id')
                                         ->mapWithKeys(fn($n, $id) => ["JobOrder:{$id}" => "#{$n}"])
                                         ->toArray(),
                                 ])
@@ -88,7 +87,25 @@ class JournalEntryForm
                                 ->default(now())
                                 ->required(),
                         ])->columns(2),
-                        FileUpload::make('attachment')->maxSize(5120)->disk('public')->directory('attachments'),
+                        FileUpload::make('attachment')
+                            ->maxSize(5120)
+                            ->disk('s3')
+                            ->directory('accounting/attachments'),
+                        \Filament\Forms\Components\Placeholder::make('download_attachment')
+                            ->label('')
+                            ->hidden(fn ($record) => empty($record?->attachment))
+                            ->content(function ($record) {
+                                if (!$record || empty($record->attachment)) return null;
+                                $url = \Illuminate\Support\Facades\Storage::disk('s3')->temporaryUrl($record->attachment, now()->addMinutes(60));
+                                return new \Illuminate\Support\HtmlString(
+                                    '<div class="p-4 bg-gray-50 rounded-xl border border-dashed border-gray-300 flex items-center justify-center">' .
+                                    '<a href="' . $url . '" target="_blank" class="text-primary-600 hover:text-primary-800 font-medium flex items-center gap-2">' .
+                                    '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>' .
+                                    'Download Attachment' .
+                                    '</a>' .
+                                    '</div>'
+                                );
+                            }),
                         Textarea::make('narration')->columnSpanFull()
                     ])->columnSpan(3),
                     Group::make()->schema([

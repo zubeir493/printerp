@@ -10,6 +10,14 @@ use App\Models\JobOrder;
 class PaymentAllocationObserver
 {
     /**
+     * Handle the PaymentAllocation "saved" event.
+     */
+    public function saved(PaymentAllocation $paymentAllocation): void
+    {
+        $this->updateAllocatable($paymentAllocation);
+    }
+
+    /**
      * Handle the PaymentAllocation "updating" event.
      */
     public function updating(PaymentAllocation $paymentAllocation): void

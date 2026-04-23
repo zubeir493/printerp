@@ -74,16 +74,17 @@ class StockMovementObserver
             ['quantity_on_hand' => 0]
         );
 
-        $oldQty = (float) $balance->quantity_on_hand;
-        $balance->quantity_on_hand = $oldQty + $delta;
-        $balance->save();
+        if ($delta > 0) {
+            $balance->increment('quantity_on_hand', $delta);
+        } elseif ($delta < 0) {
+            $balance->decrement('quantity_on_hand', abs($delta));
+        }
 
-        Log::info('Balance change applied', [
+        Log::info('Balance change applied (atomic)', [
             'item' => $inventoryItemId,
             'warehouse' => $warehouseId,
             'delta' => $delta,
-            'old_qty' => $oldQty,
-            'new_qty' => $balance->quantity_on_hand
+            'new_qty' => $balance->fresh()->quantity_on_hand
         ]);
     }
 

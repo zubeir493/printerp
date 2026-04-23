@@ -32,6 +32,32 @@ class InventoryService
         );
     }
 
+    public function receiveStockInPurchaseUnit(
+        int $itemId,
+        int $warehouseId,
+        float $purchaseQuantity,
+        float $purchaseUnitPrice,
+        string $referenceType,
+        int $referenceId
+    ) {
+        $item = InventoryItem::findOrFail($itemId);
+        $warehouse = Warehouse::findOrFail($warehouseId);
+
+        $factor = (float)($item->conversion_factor ?: 1);
+        $baseQuantity = $purchaseQuantity * $factor;
+        $baseUnitPrice = $purchaseUnitPrice / $factor;
+
+        return $this->createMovement(
+            $item,
+            $warehouse,
+            'purchase',
+            $baseQuantity,
+            $baseUnitPrice,
+            $referenceType,
+            $referenceId
+        );
+    }
+
     public function createMovement(
         InventoryItem $item,
         Warehouse $warehouse,
@@ -76,12 +102,17 @@ class InventoryService
              throw new \Exception("Insufficient stock for {$item->name} in the selected warehouse.");
         }
 
+        $unitCost = (float)($item->price ?? 0);
+        if ($item->type === 'raw_material' && (float)($item->conversion_factor ?? 0) > 0) {
+            $unitCost = $unitCost / (float)$item->conversion_factor;
+        }
+
         return $this->createMovement(
             $item,
             $warehouse,
             'consumption',
             $quantity,
-            $item->price,
+            $unitCost,
             $referenceType,
             $referenceId
         );

@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\ProductionReports\Schemas;
 
 use Filament\Forms\Components\DatePicker;
+use Filament\Schemas\Components\Group;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Repeater\TableColumn;
@@ -17,56 +18,61 @@ class ProductionReportForm
     {
         return $schema
             ->components([
-                Repeater::make('items')
+                Repeater::make('machines')
+                    ->label('Machine Reports')
                     ->relationship()
-                    ->table([
-                        TableColumn::make('Machine')->alignLeft(),
-                        TableColumn::make('Task')->alignLeft(),
-                        TableColumn::make('Planned Qty')->alignLeft(),
-                        TableColumn::make('Actual Qty')->alignLeft(),
-                        TableColumn::make('Planned Plates')->alignLeft(),
-                        TableColumn::make('Plates Used')->alignLeft(),
-                        TableColumn::make('Planned Rounds')->alignLeft(),
-                        TableColumn::make('Rounds')->alignLeft(),
-                        TableColumn::make('Date')->alignLeft(),
-                    ])
                     ->schema([
                         Placeholder::make('machine_name')
                             ->label('Machine')
-                            ->color('gray')
-                            ->content(fn($record) => $record?->productionPlanItem?->machine?->name),
-                        Placeholder::make('job_order_task')
-                            ->color('gray')
-                            ->label('Task')
-                            ->content(fn($record) => $record?->productionPlanItem?->jobOrderTask?->name),
-                        Placeholder::make('planned_quantity')
-                            ->color('gray')
-                            ->label('Planned')
-                            ->content(fn($record) => $record?->productionPlanItem?->planned_quantity),
-                        TextInput::make('actual_quantity')
-                            ->numeric()
-                            ->required(),
-                        Placeholder::make('planned_plates')
-                            ->color('gray')
-                            ->label('Planned')
-                            ->content(fn($record) => $record?->productionPlanItem?->planned_plates),
-                        TextInput::make('plates_used')
-                            ->numeric()
-                            ->default(0),
-                        Placeholder::make('planned_rounds')
-                            ->color('gray')
-                            ->label('Planned')
-                            ->content(fn($record) => $record?->productionPlanItem?->planned_rounds),
-                        TextInput::make('rounds')
-                            ->numeric()
-                            ->default(0),
-                        DatePicker::make('date')
-                            ->required()
-                            ->default(now()),
+                            ->content(fn($record) => $record?->productionPlanMachine?->machine?->name),
+
+                        Repeater::make('items')
+                            ->label('Production Records')
+                            ->relationship()
+                            ->schema([
+                                Group::make([
+                                    Placeholder::make('job_order_task')
+                                        ->label('Task')
+                                        ->content(fn($record) => $record?->productionPlanItem?->jobOrderTask?->name),
+                                    Placeholder::make('planned_quantity')
+                                        ->label('Planned Qty')
+                                        ->content(fn($record) => $record?->productionPlanItem?->planned_quantity),
+                                    TextInput::make('actual_quantity')
+                                        ->label('Actual Qty')
+                                        ->numeric()
+                                        ->required(),
+                                ])->columns(3),
+
+                                Group::make([
+                                    Placeholder::make('planned_plates')
+                                        ->label('Planned Plates')
+                                        ->content(fn($record) => $record?->productionPlanItem?->planned_plates),
+                                    TextInput::make('plates_used')
+                                        ->label('Plates Used')
+                                        ->numeric()
+                                        ->default(0),
+                                    Placeholder::make('planned_rounds')
+                                        ->label('Planned Rounds')
+                                        ->content(fn($record) => $record?->productionPlanItem?->planned_rounds),
+                                    TextInput::make('rounds')
+                                        ->label('Actual Rounds')
+                                        ->numeric()
+                                        ->default(0),
+                                    DatePicker::make('date')
+                                        ->required()
+                                        ->default(now()),
+                                ])->columns(5),
+                            ])
+                            ->addable(false)
+                            ->deletable(false)
+                            ->compact()
+                            ->columnSpanFull()
+                            ->addActionLabel(''),
                     ])
-                    ->compact()
                     ->addable(false)
-                    ->deletable(false)->columnSpan(7),
+                    ->deletable(false)
+                    ->columnSpanFull()
+                    ->addActionLabel(''),
                 Section::make()
                     ->schema([
                         Select::make('production_plan_id')

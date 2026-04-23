@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class ProductionReportItem extends Model
 {
     protected $fillable = [
-        'production_report_id',
+        'production_report_machine_id',
         'production_plan_item_id',
         'date',
         'actual_quantity',
@@ -20,9 +20,9 @@ class ProductionReportItem extends Model
         'date' => 'date',
     ];
 
-    public function productionReport(): BelongsTo
+    public function productionReportMachine(): BelongsTo
     {
-        return $this->belongsTo(ProductionReport::class);
+        return $this->belongsTo(ProductionReportMachine::class);
     }
 
     public function productionPlanItem(): BelongsTo
