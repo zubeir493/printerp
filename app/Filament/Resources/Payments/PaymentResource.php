@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Payments;
 
+use App\Filament\Support\PanelAccess;
 use App\Filament\Resources\Payments\Pages\CreatePayment;
 use App\Filament\Resources\Payments\Pages\ListPayments;
 use App\Filament\Resources\Payments\Schemas\PaymentForm;
@@ -22,6 +23,11 @@ class PaymentResource extends Resource
     public static function form(Schema $schema): Schema
     {
         return PaymentForm::configure($schema);
+    }
+
+    public static function canViewAny(): bool
+    {
+        return PanelAccess::canAccessFinanceSection();
     }
 
     public static function table(Table $table): Table

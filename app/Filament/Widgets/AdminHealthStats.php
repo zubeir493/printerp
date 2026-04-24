@@ -39,21 +39,29 @@ class AdminHealthStats extends BaseWidget
         
         $shrinkageValue = abs($shrinkageValue);
 
+        // Sample chart data for demonstration
+        $cashChart = [10, 12, 8, 15, 11, 9, round($cashConversionDays, 1)];
+        $dispatchChart = [5, 3, 7, 2, 4, 1, $lateDispatches];
+        $shrinkageChart = [50, 40, 60, 30, 45, 55, $shrinkageValue];
+
         return [
             Stat::make('Cash Conversion Cycle', round($cashConversionDays, 1) . ' Days')
                 ->description('Avg days from Order to Payment')
                 ->descriptionIcon('heroicon-m-clock')
-                ->color($cashConversionDays > 14 ? 'warning' : 'success'),
+                ->color($cashConversionDays > 14 ? 'warning' : 'success')
+                ->chart($cashChart),
             
             Stat::make('Delayed Dispatches', $lateDispatches)
                 ->description('Unshipped orders > 3 days old')
                 ->descriptionIcon('heroicon-m-truck')
-                ->color($lateDispatches > 0 ? 'danger' : 'success'),
+                ->color($lateDispatches > 0 ? 'danger' : 'success')
+                ->chart($dispatchChart),
                 
             Stat::make('Inventory Shrinkage (30d)', number_format($shrinkageValue) . ' Units')
                 ->description('Loss from manual adjustments')
                 ->descriptionIcon('heroicon-m-exclamation-triangle')
-                ->color($shrinkageValue > 100 ? 'danger' : 'success'),
+                ->color($shrinkageValue > 100 ? 'danger' : 'success')
+                ->chart($shrinkageChart),
         ];
     }
 }

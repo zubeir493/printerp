@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\StockTransfers;
 
+use App\Filament\Support\PanelAccess;
 use App\Filament\Resources\StockTransfers\Pages\CreateStockTransfer;
 use App\Filament\Resources\StockTransfers\Pages\EditStockTransfer;
 use App\Filament\Resources\StockTransfers\Pages\ListStockTransfers;
@@ -23,6 +24,11 @@ class StockTransferResource extends Resource
     public static function form(Schema $schema): Schema
     {
         return StockTransferForm::configure($schema);
+    }
+
+    public static function canViewAny(): bool
+    {
+        return PanelAccess::canAccessWarehouseSection();
     }
 
     public static function table(Table $table): Table

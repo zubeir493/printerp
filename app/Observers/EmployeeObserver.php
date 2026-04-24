@@ -45,6 +45,10 @@ class EmployeeObserver
      */
     public function deleted(Employee $employee): void
     {
+        if (! $employee->isForceDeleting()) {
+            return;
+        }
+
         if ($employee->image) {
             \Illuminate\Support\Facades\Storage::disk('s3')->delete($employee->image);
         }

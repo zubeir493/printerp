@@ -2,9 +2,13 @@
 
 namespace App\Filament\Resources\JobOrderTasks\Tables;
 
+use App\Models\User;
+use App\Services\MaterialIssueService;
+use App\UserRole;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
+use Filament\Tables\Columns\SelectColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 
@@ -14,17 +18,21 @@ class JobOrderTasksTable
     {
         return $table
             ->columns([
-                TextColumn::make('jobOrder.job_order_number')
-                    ->label('Job Order #')
-                    ->searchable()
-                    ->sortable(),
                 TextColumn::make('name')
                     ->label('Task')
+                    ->weight('bold')
+                    ->description(fn($record) => $record->jobOrder->job_order_number)
                     ->searchable(),
                 TextColumn::make('quantity')
                     ->numeric()
                     ->sortable(),
-                \Filament\Tables\Columns\SelectColumn::make('status')
+                TextColumn::make('designer.name')
+                    ->label('Designer')
+                    ->placeholder('Unassigned')
+                    ->badge()
+                    ->color(fn ($state) => filled($state) ? 'info' : 'gray')
+                    ->searchable(),
+                SelectColumn::make('status')
                     ->options([
                         'pending' => 'Pending',
                         'design' => 'Design',
@@ -48,8 +56,53 @@ class JobOrderTasksTable
                         'completed' => 'Completed',
                         'cancelled' => 'Cancelled',
                     ]),
+                \Filament\Tables\Filters\SelectFilter::make('designer_id')
+                    ->label('Designer')
+                    ->options(fn () => User::query()
+                        ->where('role', UserRole::Design->value)
+                        ->orderBy('name')
+                        ->pluck('name', 'id')
+                        ->all())
+                    ->searchable()
+                    ->preload(),
+                \Filament\Tables\Filters\TernaryFilter::make('assigned')
+                    ->label('Assignment')
+                    ->queries(
+                        true: fn ($query) => $query->whereNotNull('designer_id'),
+                        false: fn ($query) => $query->whereNull('designer_id'),
+                        blank: fn ($query) => $query,
+                    ),
             ])
             ->actions([
+                \Filament\Actions\Action::make('assign_designer')
+                    ->label('Assign Designer')
+                    ->icon('heroicon-o-user-plus')
+                    ->color('primary')
+                    ->visible(fn ($record) => blank($record->designer_id))
+                    ->form([
+                        \Filament\Forms\Components\Select::make('designer_id')
+                            ->label('Designer')
+                            ->options(fn () => User::query()
+                                ->where('role', UserRole::Design->value)
+                                ->orderBy('name')
+                                ->pluck('name', 'id'))
+                            ->searchable()
+                            ->preload()
+                            ->nullable(),
+                    ])
+                    ->fillForm(fn ($record) => [
+                        'designer_id' => $record->designer_id,
+                    ])
+                    ->action(function (array $data, $record) {
+                        $record->update([
+                            'designer_id' => $data['designer_id'] ?? null,
+                        ]);
+
+                        \Filament\Notifications\Notification::make()
+                            ->title(($data['designer_id'] ?? null) ? 'Designer assigned' : 'Designer unassigned')
+                            ->success()
+                            ->send();
+                    }),
                 \Filament\Actions\Action::make('request_materials')
                     ->label('Request Materials')
                     ->icon('heroicon-o-document-plus')
@@ -100,7 +153,10 @@ class JobOrderTasksTable
                     ->label('Issue Materials')
                     ->icon('heroicon-o-archive-box-arrow-down')
                     ->color('warning')
-                    ->visible(fn ($record) => $record->materialRequests()->whereColumn('issued_quantity', '<', 'requested_quantity')->exists())
+                    ->visible(fn ($record) => $record->materialRequests()
+                        ->whereColumn('issued_quantity', '<', 'requested_quantity')
+                        ->whereDoesntHave('pendingIssueApprovals', fn ($query) => $query->where('status', 'pending'))
+                        ->exists())
                     ->form(fn ($record) => [
                         \Filament\Forms\Components\Select::make('warehouse_id')
                             ->label('Warehouse')
@@ -141,11 +197,12 @@ class JobOrderTasksTable
                                     ->helperText(function ($get, $record) {
                                         $warehouseId = $get('../../warehouse_id');
                                         if (!$warehouseId) return "Please select a warehouse first.";
-                                        return null;
+                                        return 'If this exceeds the required quantity, it will be queued for approval instead of issuing immediately.';
                                     })
                             ])->columns(2)
                             ->default(fn () => $record->materialRequests()
                                 ->whereColumn('issued_quantity', '<', 'requested_quantity')
+                                ->whereDoesntHave('pendingIssueApprovals', fn ($query) => $query->where('status', 'pending'))
                                 ->get()
                                 ->map(fn ($mr) => [
                                     'material_request_id' => $mr->id,
@@ -155,39 +212,24 @@ class JobOrderTasksTable
                     ])
                     ->action(function ($record, $data) {
                         try {
-                            $inventoryService = app(\App\Services\InventoryService::class);
-                            \DB::beginTransaction();
+                            $results = ['issued' => 0, 'pending_approval' => 0];
+
                             foreach ($data['items'] as $item) {
                                 if ($item['quantity'] <= 0) continue;
-                                
-                                $mr = \App\Models\MaterialRequest::find($item['material_request_id']);
-                                
-                                // Double check stock in action to prevent race conditions
-                                $stock = \App\Models\InventoryBalance::where('warehouse_id', $data['warehouse_id'])
-                                    ->where('inventory_item_id', $mr->inventory_item_id)
-                                    ->value('quantity_on_hand') ?? 0;
-                                
-                                if ($stock < $item['quantity']) {
-                                    throw new \Exception("Insufficient stock for {$mr->inventoryItem->name} in the selected warehouse.");
-                                }
 
-                                $inventoryService->consumeStock(
-                                    $mr->inventory_item_id,
-                                    $data['warehouse_id'],
-                                    $item['quantity'],
-                                    'consumption',
-                                    $record->job_order_id
-                                );
-                                $mr->increment('issued_quantity', $item['quantity']);
+                                $mr = \App\Models\MaterialRequest::findOrFail($item['material_request_id']);
+                                $result = app(MaterialIssueService::class)->issue($mr, (int) $data['warehouse_id'], (float) $item['quantity'], auth()->user());
+                                $results[$result['status']]++;
                             }
-                            \DB::commit();
 
                             \Filament\Notifications\Notification::make()
-                                ->title('Materials Issued Successfully')
+                                ->title(trim(collect([
+                                    $results['issued'] ? "{$results['issued']} item(s) issued" : null,
+                                    $results['pending_approval'] ? "{$results['pending_approval']} item(s) sent for approval" : null,
+                                ])->filter()->implode(' | ')) ?: 'No materials processed')
                                 ->success()
                                 ->send();
                         } catch (\Exception $e) {
-                            \DB::rollBack();
                             \Filament\Notifications\Notification::make()
                                 ->title('Error Issuing Materials')
                                 ->body($e->getMessage())

@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Accounts;
 
+use App\Filament\Support\PanelAccess;
 use App\Filament\Resources\Accounts\Pages\CreateAccount;
 use App\Filament\Resources\Accounts\Pages\EditAccount;
 use App\Filament\Resources\Accounts\Pages\ListAccounts;
@@ -24,6 +25,11 @@ class AccountResource extends Resource
     public static function form(Schema $schema): Schema
     {
         return AccountForm::configure($schema);
+    }
+
+    public static function canViewAny(): bool
+    {
+        return PanelAccess::canAccessFinanceSection();
     }
 
 

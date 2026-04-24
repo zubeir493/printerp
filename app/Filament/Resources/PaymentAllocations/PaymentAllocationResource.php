@@ -8,6 +8,7 @@ use App\Filament\Resources\PaymentAllocations\Schemas\PaymentAllocationForm;
 use App\Filament\Resources\PaymentAllocations\Tables\PaymentAllocationsTable;
 use App\Models\PaymentAllocation;
 use BackedEnum;
+use Filament\Facades\Filament;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
@@ -17,13 +18,18 @@ class PaymentAllocationResource extends Resource
 {
     protected static ?string $model = PaymentAllocation::class;
 
-    protected static ?string $navigationParentItem = 'Payments';
-
     protected static ?string $navigationLabel = 'Allocations';
 
     public static function canCreate(): bool
     {
         return false;
+    }
+
+    public static function getNavigationParentItem(): ?string
+    {
+        return Filament::getCurrentPanel()?->getId() === 'admin' || 'finance'
+            ? 'Payments'
+            : null;
     }
 
     public static function form(Schema $schema): Schema

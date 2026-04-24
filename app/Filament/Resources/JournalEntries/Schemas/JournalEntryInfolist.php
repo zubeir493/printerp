@@ -24,6 +24,10 @@ class JournalEntryInfolist
                 TextEntry::make('voided_at')
                     ->dateTime()
                     ->placeholder('-'),
+                TextEntry::make('reversal_of_journal_entry_id')
+                    ->label('Reversal Of')
+                    ->numeric()
+                    ->placeholder('-'),
                 TextEntry::make('created_at')
                     ->dateTime()
                     ->placeholder('-'),

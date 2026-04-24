@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\JobOrderTasks\RelationManagers;
 
+use App\Services\MaterialIssueService;
 use Filament\Schemas\Schema;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables;
@@ -49,6 +50,9 @@ class MaterialRequestsRelationManager extends RelationManager
                 Tables\Columns\TextColumn::make('required_quantity')->label('Required'),
                 Tables\Columns\TextColumn::make('requested_quantity')->label('Requested'),
                 Tables\Columns\TextColumn::make('issued_quantity')->label('Issued'),
+                Tables\Columns\TextColumn::make('pendingIssueApprovals_count')
+                    ->label('Pending Approvals')
+                    ->counts('pendingIssueApprovals'),
             ])
             ->filters([
                 //
@@ -63,7 +67,7 @@ class MaterialRequestsRelationManager extends RelationManager
                     ->label('Issue')
                     ->icon('heroicon-o-archive-box-arrow-down')
                     ->color('success')
-                    ->visible(fn ($record) => $record->requested_quantity > $record->issued_quantity)
+                    ->visible(fn ($record) => $record->requested_quantity > $record->issued_quantity && !$record->pendingIssueApprovals()->exists())
                     ->form([
                         \Filament\Forms\Components\Select::make('warehouse_id')
                             ->label('Warehouse')
@@ -75,31 +79,18 @@ class MaterialRequestsRelationManager extends RelationManager
                             ->numeric()
                             ->required()
                             ->default(fn ($record) => $record->requested_quantity - $record->issued_quantity)
-                            ->maxValue(fn ($record) => $record->requested_quantity - $record->issued_quantity),
+                            ->maxValue(fn ($record) => $record->requested_quantity - $record->issued_quantity)
+                            ->helperText('If this exceeds the required quantity, it will be queued for approval instead of issuing immediately.'),
                     ])
                     ->action(function ($record, array $data) {
                         try {
-                            $inventoryService = app(\App\Services\InventoryService::class);
-                            \DB::beginTransaction();
-                            
-                            $inventoryService->consumeStock(
-                                $record->inventory_item_id,
-                                $data['warehouse_id'],
-                                $data['quantity'],
-                                'consumption',
-                                $record->jobOrderTask->job_order_id
-                            );
-                            
-                            $record->increment('issued_quantity', $data['quantity']);
-                            
-                            \DB::commit();
+                            $result = app(MaterialIssueService::class)->issue($record, (int) $data['warehouse_id'], (float) $data['quantity'], auth()->user());
 
                             \Filament\Notifications\Notification::make()
-                                ->title('Materials issued successfully')
+                                ->title($result['status'] === 'pending_approval' ? 'Over-issue sent for approval' : 'Materials issued successfully')
                                 ->success()
                                 ->send();
                         } catch (\Exception $e) {
-                            \DB::rollBack();
                             \Filament\Notifications\Notification::make()
                                 ->title('Error issuing materials')
                                 ->body($e->getMessage())

@@ -6,6 +6,8 @@ use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
+use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\TextInput;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
@@ -34,12 +36,13 @@ class ArtworksTable
                     ->size(\Filament\Support\Enums\IconSize::Large),
                 TextColumn::make('jobOrderTask.name')
                     ->label('Task')
-                    ->description(fn ($record) => $record->jobOrder?->job_order_number)
+                    ->description(fn($record) => $record->jobOrder?->job_order_number)
                     ->searchable()
                     ->weight('bold'),
                 TextColumn::make('filename')
                     ->label('File Name')
-                    ->formatStateUsing(fn ($state) => basename($state))
+                    ->formatStateUsing(fn($state) => basename($state))
+                    ->limit(50)
                     ->description(fn($record) => $record->uploader?->name ? "Uploaded by {$record->uploader->name}" : 'System')
                     ->searchable(),
                 IconColumn::make('is_approved')
@@ -82,7 +85,39 @@ class ArtworksTable
                     ->color('success')
                     ->hidden(fn($record) => $record->is_approved)
                     ->action(fn($record) => $record->update(['is_approved' => true])),
-                EditAction::make(),
+                \Filament\Actions\Action::make('sendEmail')
+                    ->label('Send Artwork')
+                    ->icon('heroicon-m-envelope')
+                    ->color('success')
+                    ->form([
+                        TextInput::make('recipient_email')
+                            ->label('Recipient Email')
+                            ->email()
+                            ->required(),
+                        TextInput::make('subject')
+                            ->label('Subject')
+                            ->required()
+                            ->default(fn($record) => basename($record->filename)),
+                        Textarea::make('message')
+                    ])
+                    ->action(function ($record, array $data) {
+                        // Assuming Mail facade is used to send the actual email in the future
+                        // Mail::to($data['recipient_email'])->send(new ArtworkDownloadEmail($record, $data));
+
+                        \App\Models\EmailLog::create([
+                            'recipient_email' => $data['recipient_email'],
+                            'subject' => $data['subject'],
+                            'message' => $data['message'],
+                            'artwork_id' => $record->id,
+                            'sent_by' => \Illuminate\Support\Facades\Auth::id(),
+                            'sent_at' => now(),
+                        ]);
+
+                        \Filament\Notifications\Notification::make()
+                            ->title('Email sent successfully')
+                            ->success()
+                            ->send();
+                    }),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([

@@ -2,6 +2,12 @@
 
 namespace App\Providers\Filament;
 
+use App\Filament\Design\Widgets\AwaitingYourUploadTable;
+use App\Filament\Design\Widgets\DesignPanelStats;
+use App\Filament\Design\Widgets\JobOrderTaskStatusChart;
+use App\Filament\Design\Widgets\MyActiveTasksTable;
+use App\Filament\Resources\Artworks\ArtworkResource;
+use App\Filament\Resources\JobOrderTasks\JobOrderTaskResource;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
@@ -10,8 +16,6 @@ use Filament\Pages\Dashboard;
 use Filament\Panel;
 use Filament\PanelProvider;
 use Filament\Support\Colors\Color;
-use Filament\Widgets\AccountWidget;
-use Filament\Widgets\FilamentInfoWidget;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
@@ -31,15 +35,18 @@ class DesignPanelProvider extends PanelProvider
                 'primary' => Color::Indigo,
             ])
             ->resources([
-                \App\Filament\Resources\Artworks\ArtworkResource::class,
-                \App\Filament\Resources\JobOrders\JobOrderResource::class,
+                ArtworkResource::class,
+                JobOrderTaskResource::class,
             ])
             ->discoverPages(in: app_path('Filament/Design/Pages'), for: 'App\Filament\Design\Pages')
             ->pages([
                 Dashboard::class,
             ])
-            ->discoverWidgets(in: app_path('Filament/Design/Widgets'), for: 'App\Filament\Design\Widgets')
             ->widgets([
+                DesignPanelStats::class,
+                JobOrderTaskStatusChart::class,
+                AwaitingYourUploadTable::class,
+                MyActiveTasksTable::class,
             ])
             ->middleware([
                 EncryptCookies::class,

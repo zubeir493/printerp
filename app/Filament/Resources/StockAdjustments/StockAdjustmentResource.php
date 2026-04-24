@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\StockAdjustments;
 
+use App\Filament\Support\PanelAccess;
 use App\Filament\Resources\StockAdjustments\Pages\CreateStockAdjustment;
 use App\Filament\Resources\StockAdjustments\Pages\EditStockAdjustment;
 use App\Filament\Resources\StockAdjustments\Pages\ListStockAdjustments;
@@ -23,6 +24,11 @@ class StockAdjustmentResource extends Resource
     public static function form(Schema $schema): Schema
     {
         return StockAdjustmentForm::configure($schema);
+    }
+
+    public static function canViewAny(): bool
+    {
+        return PanelAccess::canAccessWarehouseSection();
     }
 
 

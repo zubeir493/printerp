@@ -38,11 +38,11 @@ class UsersTable
                 \Filament\Tables\Filters\SelectFilter::make('role')
                     ->options([
                         \App\UserRole::Admin->value => 'Admin',
-                        // \App\UserRole::Operations->value => 'Operations',
+                        \App\UserRole::Operations->value => 'Operations',
                         \App\UserRole::Finance->value => 'Finance',
                         \App\UserRole::Sales->value => 'Sales',
-                        // \App\UserRole::Retail->value => 'Retail',
-                        // \App\UserRole::HR->value => 'HR',
+                        \App\UserRole::Retail->value => 'Retail',
+                        \App\UserRole::HR->value => 'HR',
                     ]),
             ])
             ->recordActions([

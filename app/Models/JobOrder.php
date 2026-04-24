@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -115,6 +116,15 @@ class JobOrder extends Model
     public function scopeFullyPaid($query)
     {
         return $query->whereRaw('total_price <= (SELECT COALESCE(SUM(allocated_amount), 0) FROM payment_allocations WHERE allocatable_id = job_orders.id AND allocatable_type = ?)', [self::class]);
+    }
+
+    public function scopeLate($query, CarbonInterface|string|null $date = null)
+    {
+        $date ??= today();
+
+        return $query
+            ->whereDate('submission_date', '<', $date)
+            ->whereNotIn('status', ['completed', 'cancelled']);
     }
 
     public function recalculateTotal(): void

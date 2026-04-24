@@ -17,7 +17,13 @@ class PaymentAllocationsRelationManager extends RelationManager
 
     public static function canViewForRecord($ownerRecord, string $pageClass): bool
     {
-        return $ownerRecord->payment_type === 'standard';
+        $transactionType = $ownerRecord->transaction_type ?? match ($ownerRecord->payment_type ?? null) {
+            'expense' => 'direct_expense',
+            'petty_cash' => $ownerRecord->direction === 'inbound' ? 'petty_cash_funding' : 'petty_cash_expense',
+            default => $ownerRecord->direction === 'outbound' ? 'supplier_payment' : 'customer_receipt',
+        };
+
+        return in_array($transactionType, ['customer_receipt', 'supplier_payment'], true);
     }
 
     public function form(Schema $schema): Schema

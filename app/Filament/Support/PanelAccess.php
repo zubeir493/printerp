@@ -1,0 +1,33 @@
+<?php
+
+namespace App\Filament\Support;
+
+use Filament\Facades\Filament;
+
+class PanelAccess
+{
+    public static function panelId(): ?string
+    {
+        return Filament::getCurrentOrDefaultPanel()?->getId();
+    }
+
+    public static function canAccessWarehouseSection(): bool
+    {
+        return in_array(self::panelId(), ['admin', 'warehouse'], true);
+    }
+
+    public static function canAccessFinanceSection(): bool
+    {
+        return in_array(self::panelId(), ['admin', 'finance'], true);
+    }
+
+    public static function canSeeMoneyValues(): bool
+    {
+        return in_array(self::panelId(), ['admin', 'finance', 'operations'], true);
+    }
+
+    public static function canApproveMaterialOverIssues(): bool
+    {
+        return in_array(self::panelId(), ['admin', 'operations'], true);
+    }
+}

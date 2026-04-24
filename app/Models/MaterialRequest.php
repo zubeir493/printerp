@@ -3,6 +3,8 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class MaterialRequest extends Model
 {
@@ -14,13 +16,34 @@ class MaterialRequest extends Model
         'issued_quantity',
     ];
 
-    public function jobOrderTask()
+    protected function casts(): array
+    {
+        return [
+            'job_order_task_id' => 'integer',
+            'inventory_item_id' => 'integer',
+            'required_quantity' => 'decimal:2',
+            'requested_quantity' => 'decimal:2',
+            'issued_quantity' => 'decimal:2',
+        ];
+    }
+
+    public function jobOrderTask(): BelongsTo
     {
         return $this->belongsTo(JobOrderTask::class);
     }
 
-    public function inventoryItem()
+    public function inventoryItem(): BelongsTo
     {
         return $this->belongsTo(InventoryItem::class);
+    }
+
+    public function issueApprovals(): HasMany
+    {
+        return $this->hasMany(MaterialIssueApproval::class);
+    }
+
+    public function pendingIssueApprovals(): HasMany
+    {
+        return $this->issueApprovals()->where('status', 'pending');
     }
 }

@@ -20,7 +20,7 @@ class ListInventoryItems extends ListRecords
     protected function getHeaderWidgets(): array
     {
         return [
-            \App\Filament\Widgets\InventoryStatsWidget::class,
+            \App\Filament\Widgets\StockOverviewStats::class,
         ];
     }
 }

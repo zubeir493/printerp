@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\JobOrderTasks\Schemas;
 
+use App\UserRole;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Repeater;
@@ -20,6 +21,15 @@ class JobOrderTaskForm
                 Select::make('job_order_id')
                     ->relationship('jobOrder', 'job_order_number')
                     ->required(),
+                Select::make('designer_id')
+                    ->label('Assigned Designer')
+                    ->options(fn () => \App\Models\User::query()
+                        ->where('role', UserRole::Design->value)
+                        ->orderBy('name')
+                        ->pluck('name', 'id'))
+                    ->searchable()
+                    ->preload()
+                    ->nullable(),
                 TextInput::make('name')
                     ->required(),
                 TextInput::make('quantity')

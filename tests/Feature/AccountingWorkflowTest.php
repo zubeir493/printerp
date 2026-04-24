@@ -9,6 +9,7 @@ use App\Models\Partner;
 use App\Models\Payment;
 use App\Models\PurchaseOrder;
 use App\Models\PurchaseOrderItem;
+use App\Services\Accounting\VoidPaymentJournalEntry;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -103,6 +104,92 @@ class AccountingWorkflowTest extends TestCase
 
         $this->assertDatabaseHas('journal_items', [
             'credit' => 2500.00,
+        ]);
+    }
+
+    public function test_direct_expense_payment_posts_to_expense_account()
+    {
+        $cashAccount = Account::getSystemAccount('1000', 'Cash in Hand', 'Asset');
+        $expenseAccount = Account::getSystemAccount('5990', 'Miscellaneous Expense', 'Expense');
+
+        $payment = Payment::create([
+            'payment_number' => 'PAY-002',
+            'payment_date' => now(),
+            'amount' => 1250.00,
+            'transaction_type' => 'direct_expense',
+            'method' => 'cash',
+            'reference' => 'Electricity Bill',
+        ]);
+
+        $journalEntry = JournalEntry::where('source_type', Payment::class)
+            ->where('source_id', $payment->id)
+            ->first();
+
+        $this->assertNotNull($journalEntry);
+        $this->assertDatabaseHas('journal_items', [
+            'journal_entry_id' => $journalEntry->id,
+            'account_id' => $expenseAccount->id,
+            'debit' => 1250.00,
+        ]);
+        $this->assertDatabaseHas('journal_items', [
+            'journal_entry_id' => $journalEntry->id,
+            'account_id' => $cashAccount->id,
+            'credit' => 1250.00,
+        ]);
+    }
+
+    public function test_payment_void_creates_reversal_journal_entry()
+    {
+        $customer = Partner::create([
+            'name' => 'Void Test Customer',
+            'is_customer' => true,
+        ]);
+
+        $payment = Payment::create([
+            'payment_number' => 'PAY-003',
+            'partner_id' => $customer->id,
+            'payment_date' => now(),
+            'amount' => 900.00,
+            'direction' => 'inbound',
+            'method' => 'cash',
+            'reference' => 'Initial receipt',
+        ]);
+
+        $originalJournal = JournalEntry::where('source_type', Payment::class)
+            ->where('source_id', $payment->id)
+            ->where('status', 'posted')
+            ->first();
+
+        $this->assertNotNull($originalJournal);
+
+        $reversalJournal = app(VoidPaymentJournalEntry::class)->handle($payment, 'Customer refund', null);
+
+        $this->assertNotNull($reversalJournal);
+        $this->assertDatabaseHas('payments', [
+            'id' => $payment->id,
+        ]);
+        $this->assertNotNull($payment->fresh()->voided_at);
+
+        $this->assertDatabaseHas('journal_entries', [
+            'id' => $originalJournal->id,
+            'status' => 'voided',
+        ]);
+
+        $this->assertDatabaseHas('journal_entries', [
+            'id' => $reversalJournal->id,
+            'reversal_of_journal_entry_id' => $originalJournal->id,
+        ]);
+
+        $this->assertDatabaseHas('journal_items', [
+            'journal_entry_id' => $reversalJournal->id,
+            'debit' => 0.00,
+            'credit' => 900.00,
+        ]);
+
+        $this->assertDatabaseHas('journal_items', [
+            'journal_entry_id' => $reversalJournal->id,
+            'debit' => 900.00,
+            'credit' => 0.00,
         ]);
     }
 }

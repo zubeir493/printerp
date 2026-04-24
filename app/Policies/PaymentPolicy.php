@@ -23,4 +23,13 @@ class PaymentPolicy
             ->where('source_id', $payment->id)
             ->exists();
     }
+
+    public function void(User $user, Payment $payment): bool
+    {
+        return ! $payment->voided_at
+            && JournalEntry::where('source_type', Payment::class)
+                ->where('source_id', $payment->id)
+                ->where('status', 'posted')
+                ->exists();
+    }
 }

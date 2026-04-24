@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Dispatches;
 
+use App\Filament\Support\PanelAccess;
 use App\Filament\Resources\Dispatches\Pages\CreateDispatch;
 use App\Filament\Resources\Dispatches\Pages\EditDispatch;
 use App\Filament\Resources\Dispatches\Pages\ListDispatches;
@@ -25,6 +26,11 @@ class DispatchResource extends Resource
     public static function form(Schema $schema): Schema
     {
         return DispatchForm::configure($schema);
+    }
+
+    public static function canViewAny(): bool
+    {
+        return PanelAccess::canAccessWarehouseSection();
     }
 
 

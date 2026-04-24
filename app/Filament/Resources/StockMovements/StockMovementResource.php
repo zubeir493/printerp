@@ -10,6 +10,7 @@ use App\Filament\Resources\StockMovements\Schemas\StockMovementInfolist;
 use App\Filament\Resources\StockMovements\Tables\StockMovementsTable;
 use App\Models\StockMovement;
 use BackedEnum;
+use Filament\Facades\Filament;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
@@ -18,8 +19,6 @@ use Filament\Tables\Table;
 class StockMovementResource extends Resource
 {
     protected static ?string $model = StockMovement::class;
-
-    protected static ?string $navigationParentItem = 'Warehouses';
 
     protected static ?string $navigationLabel = 'Movements';
 
@@ -31,6 +30,13 @@ class StockMovementResource extends Resource
     public static function canCreate(): bool
     {
         return false;
+    }
+
+    public static function getNavigationParentItem(): ?string
+    {
+        return Filament::getCurrentPanel()?->getId() === 'admin'
+            ? 'Warehouses'
+            : null;
     }
 
     public static function table(Table $table): Table

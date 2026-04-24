@@ -2,6 +2,13 @@
 
 namespace App\Providers\Filament;
 
+use App\Filament\Operations\Widgets\HighPriorityJobsTable;
+use App\Filament\Operations\Widgets\OperationsPanelStats;
+use App\Filament\Resources\JobOrders\JobOrderResource;
+use App\Filament\Resources\MaterialIssueApprovals\MaterialIssueApprovalResource;
+use App\Filament\Resources\Partners\PartnerResource;
+use App\Filament\Resources\ProductionPlans\ProductionPlanResource;
+use App\Filament\Resources\PurchaseOrders\PurchaseOrderResource;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
@@ -10,8 +17,6 @@ use Filament\Pages\Dashboard;
 use Filament\Panel;
 use Filament\PanelProvider;
 use Filament\Support\Colors\Color;
-use Filament\Widgets\AccountWidget;
-use Filament\Widgets\FilamentInfoWidget;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
@@ -31,17 +36,19 @@ class OperationsPanelProvider extends PanelProvider
                 'primary' => Color::Cyan,
             ])
             ->resources([
-                \App\Filament\Resources\JobOrders\JobOrderResource::class,
-                \App\Filament\Resources\Dispatches\DispatchResource::class,
-                \App\Filament\Resources\PurchaseOrders\PurchaseOrderResource::class,
-                \App\Filament\Resources\ProductionPlans\ProductionPlanResource::class,
+                PartnerResource::class,
+                JobOrderResource::class,
+                MaterialIssueApprovalResource::class,
+                PurchaseOrderResource::class,
+                ProductionPlanResource::class,
             ])
             ->discoverPages(in: app_path('Filament/Operations/Pages'), for: 'App\Filament\Operations\Pages')
             ->pages([
                 Dashboard::class,
             ])
-            ->discoverWidgets(in: app_path('Filament/Operations/Widgets'), for: 'App\Filament\Operations\Widgets')
             ->widgets([
+                OperationsPanelStats::class,
+                HighPriorityJobsTable::class,
             ])
             ->middleware([
                 EncryptCookies::class,

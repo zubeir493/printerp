@@ -2,6 +2,13 @@
 
 namespace App\Providers\Filament;
 
+use App\Filament\Production\Widgets\MachineEfficiencyChart;
+use App\Filament\Production\Widgets\ProductionPanelStats;
+use App\Filament\Production\Widgets\TodaysProductionScheduleTable;
+use App\Filament\Resources\Machines\MachineResource;
+use App\Filament\Resources\MaterialRequests\MaterialRequestResource;
+use App\Filament\Resources\ProductionPlans\ProductionPlanResource;
+use App\Filament\Resources\ProductionReports\ProductionReportResource;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
@@ -10,8 +17,6 @@ use Filament\Pages\Dashboard;
 use Filament\Panel;
 use Filament\PanelProvider;
 use Filament\Support\Colors\Color;
-use Filament\Widgets\AccountWidget;
-use Filament\Widgets\FilamentInfoWidget;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
@@ -31,17 +36,19 @@ class ProductionPanelProvider extends PanelProvider
                 'primary' => Color::Orange,
             ])
             ->resources([
-                \App\Filament\Resources\ProductionPlans\ProductionPlanResource::class,
-                \App\Filament\Resources\JobOrders\JobOrderResource::class,
-                \App\Filament\Resources\ProductionReports\ProductionReportResource::class,
-                \App\Filament\Resources\Machines\MachineResource::class,
+                ProductionPlanResource::class,
+                ProductionReportResource::class,
+                MachineResource::class,
+                MaterialRequestResource::class,
             ])
             ->discoverPages(in: app_path('Filament/Production/Pages'), for: 'App\Filament\Production\Pages')
             ->pages([
                 Dashboard::class,
             ])
-            ->discoverWidgets(in: app_path('Filament/Production/Widgets'), for: 'App\Filament\Production\Widgets')
             ->widgets([
+                ProductionPanelStats::class,
+                MachineEfficiencyChart::class,
+                TodaysProductionScheduleTable::class,
             ])
             ->middleware([
                 EncryptCookies::class,

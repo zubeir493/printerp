@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\JobOrders\Schemas;
 
+use App\Filament\Support\PanelAccess;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Checkbox;
 use Filament\Forms\Components\CheckboxList;
@@ -110,7 +111,9 @@ class JobOrderForm
                                     ->numeric()
                                     ->suffix('Birr')
                                     ->required()
-                                    ->live(),
+                                    ->live()
+                                    ->hidden(fn () => ! PanelAccess::canSeeMoneyValues())
+                                    ->dehydratedWhenHidden(),
 
                                 Repeater::make('paper')
                                     ->label('Paper used for this task')
@@ -360,21 +363,6 @@ class JobOrderForm
                             ->panelAspectRatio('3:1')
                             ->downloadable()
                             ->required(),
-                        \Filament\Forms\Components\Placeholder::make('download_cost_calc')
-                            ->label('')
-                            ->hidden(fn ($record) => empty($record?->cost_calc_file))
-                            ->content(function ($record) {
-                                if (!$record || empty($record->cost_calc_file)) return null;
-                                $url = \Illuminate\Support\Facades\Storage::disk('s3')->temporaryUrl($record->cost_calc_file, now()->addMinutes(60));
-                                return new \Illuminate\Support\HtmlString(
-                                    '<div class="p-4 bg-gray-50 rounded-xl border border-dashed border-gray-300 flex items-center justify-center">' .
-                                    '<a href="' . $url . '" target="_blank" class="text-primary-600 hover:text-primary-800 font-medium flex items-center gap-2">' .
-                                    '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>' .
-                                    'Download Calculation File' .
-                                    '</a>' .
-                                    '</div>'
-                                );
-                            }),
                         Toggle::make('advance_paid')
                             ->label('Advance Paid?')
                             ->disabled()
@@ -401,13 +389,17 @@ class JobOrderForm
                                 } else {
                                     $component->state(0);
                                 }
-                            }),
+                            })
+                            ->hidden(fn () => ! PanelAccess::canSeeMoneyValues())
+                            ->dehydratedWhenHidden(),
                         TextInput::make('total_price')
                             ->label('Total')
                             ->default(0)
                             ->suffix(' Birr')
                             ->readOnly()
-                            ->numeric(),
+                            ->numeric()
+                            ->hidden(fn () => ! PanelAccess::canSeeMoneyValues())
+                            ->dehydratedWhenHidden(),
 
                         Textarea::make('remarks'),
                     ]),

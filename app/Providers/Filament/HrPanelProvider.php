@@ -2,6 +2,9 @@
 
 namespace App\Providers\Filament;
 
+use App\Filament\Hr\Widgets\HrPanelStats;
+use App\Filament\Hr\Widgets\SalaryRevisionHistoryTable;
+use App\Filament\Resources\Employees\EmployeeResource;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
@@ -10,8 +13,6 @@ use Filament\Pages\Dashboard;
 use Filament\Panel;
 use Filament\PanelProvider;
 use Filament\Support\Colors\Color;
-use Filament\Widgets\AccountWidget;
-use Filament\Widgets\FilamentInfoWidget;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
@@ -31,15 +32,14 @@ class HrPanelProvider extends PanelProvider
                 'primary' => Color::Pink,
             ])
             ->resources([
-                //
+                EmployeeResource::class,
             ])
             ->pages([
                 Dashboard::class,
             ])
-            ->discoverWidgets(in: app_path('Filament/Hr/Widgets'), for: 'App\Filament\Hr\Widgets')
             ->widgets([
-                AccountWidget::class,
-                FilamentInfoWidget::class,
+                HrPanelStats::class,
+                SalaryRevisionHistoryTable::class,
             ])
             ->middleware([
                 EncryptCookies::class,

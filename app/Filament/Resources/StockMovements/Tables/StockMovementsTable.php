@@ -3,7 +3,6 @@
 namespace App\Filament\Resources\StockMovements\Tables;
 
 use Filament\Actions\BulkActionGroup;
-use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
@@ -62,9 +61,8 @@ class StockMovementsTable
             ])
             ->bulkActions([
                 BulkActionGroup::make([
-                    DeleteBulkAction::make(),
                     \Filament\Actions\ExportBulkAction::make()
-                        ->exporter(\App\Filament\Exports\StockMovementExporter::class)
+                        ->exporter(\App\Filament\Exports\StockMovementExporter::class),
                 ]),
             ]);
     }

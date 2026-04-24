@@ -2,8 +2,11 @@
 
 namespace App\Filament\Resources\Users\Schemas;
 
+use App\UserRole;
+use Filament\Forms\Get;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Select;
+use Filament\Schemas\Components\Utilities\Get as UtilitiesGet;
 use Filament\Schemas\Schema;
 
 class UserForm
@@ -21,7 +24,8 @@ class UserForm
                 Select::make('role')
                     ->options(\App\UserRole::class)
                     ->required()
-                    ->default(\App\UserRole::Design),
+                    ->default(\App\UserRole::Design)
+                    ->live(),
                 TextInput::make('password')
                     ->password()
                     ->dehydrateStateUsing(fn($state) => filled($state) ? bcrypt($state) : null)
@@ -29,6 +33,15 @@ class UserForm
                     ->required(fn(string $context) => $context === 'create')
                     ->helperText('Leave blank to keep current password')
                     ->label('Password'),
+                Select::make('warehouse_ids')
+                    ->label('Assigned Warehouses')
+                    ->options(fn () => \App\Models\Warehouse::orderBy('name')->pluck('name', 'id')->all())
+                    ->multiple()
+                    ->searchable()
+                    ->preload()
+                    ->visible(fn (UtilitiesGet $get): bool => (($get('role') instanceof UserRole ? $get('role')->value : $get('role')) === UserRole::Warehouse->value))
+                    ->helperText('This appears only for warehouse users and supports multiple warehouse assignments.')
+                    ->dehydrated(false),
             ]);
     }
 }

@@ -39,6 +39,7 @@ class ProfitabilityMarginChart extends ChartWidget
                     'borderColor' => '#10b981',
                     'backgroundColor' => 'rgba(16, 185, 129, 0.2)',
                     'fill' => 'start',
+                    'tension' => 0.4,
                 ],
                 [
                     'label' => 'Pipeline Value (JO)',
@@ -46,6 +47,8 @@ class ProfitabilityMarginChart extends ChartWidget
                     'borderColor' => '#3b82f6',
                     'borderDash' => [5, 5],
                     'backgroundColor' => 'transparent',
+                    'pointBackgroundColor' => '#3b82f6',
+                    'pointBorderColor' => '#3b82f6',
                 ],
             ],
             'labels' => array_keys($data),

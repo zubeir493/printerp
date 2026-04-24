@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\InventoryItems\Tables;
 
+use App\Filament\Support\PanelAccess;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
@@ -15,17 +16,9 @@ class InventoryItemsTable
     {
         return $table
             ->columns([
-                \Filament\Tables\Columns\TextColumn::make('image')
-                    ->label('Image')
-                    ->formatStateUsing(function ($state) {
-                        if (!$state) return null;
-                        $url = \Illuminate\Support\Facades\Storage::disk('s3')->temporaryUrl($state, now()->addMinutes(10));
-                        return new \Illuminate\Support\HtmlString('<img src="' . $url . '" class="w-10 h-10 rounded-lg object-cover" />');
-                    })
-                    ->html(),
                 TextColumn::make('name')
                     ->label('Item')
-                    ->description(fn ($record) => $record->sku)
+                    ->description(fn($record) => $record->sku)
                     ->searchable()
                     ->sortable(),
                 TextColumn::make('type')
@@ -42,6 +35,7 @@ class InventoryItemsTable
                 TextColumn::make('price')
                     ->label('Value / Price')
                     ->money('ETB')
+                    ->visible(fn() => PanelAccess::canSeeMoneyValues())
                     ->sortable(),
             ])
             ->filters([

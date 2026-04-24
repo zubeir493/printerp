@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\InventoryItems\Schemas;
 
+use App\Filament\Support\PanelAccess;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
@@ -49,9 +50,10 @@ class InventoryItemForm
                         ->label('Price / Value')
                         ->helperText('Selling price for finished goods, or stock value per unit for raw materials.')
                         ->numeric()
-                        ->hidden(fn ($get) => in_array($get('type'), ['tools', 'spare_parts']))
-                        ->required(fn ($get) => !in_array($get('type'), ['tools', 'spare_parts']))
-                        ->suffix('Birr'),
+                        ->hidden(fn ($get) => in_array($get('type'), ['tools', 'spare_parts']) || ! PanelAccess::canSeeMoneyValues())
+                        ->required(fn ($get) => !in_array($get('type'), ['tools', 'spare_parts']) && PanelAccess::canSeeMoneyValues())
+                        ->suffix('Birr')
+                        ->dehydratedWhenHidden(),
                     Toggle::make('is_sellable')
                         ->label('Is Sellable')
                         ->hidden(fn($get) => in_array($get('type'), ['tools', 'spare_parts']))

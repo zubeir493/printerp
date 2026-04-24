@@ -2,6 +2,17 @@
 
 namespace App\Providers\Filament;
 
+use App\Filament\Pages\StockOverview;
+use App\Filament\Resources\Dispatches\DispatchResource;
+use App\Filament\Resources\GoodsReceipts\GoodsReceiptResource;
+use App\Filament\Resources\InventoryItems\InventoryItemResource;
+use App\Filament\Resources\StockAdjustments\StockAdjustmentResource;
+use App\Filament\Resources\StockMovements\StockMovementResource;
+use App\Filament\Resources\StockTransfers\StockTransferResource;
+use App\Filament\Resources\Warehouses\WarehouseResource;
+use App\Filament\Warehouse\Widgets\PendingPickListTable;
+use App\Filament\Warehouse\Widgets\RecentStockMovementsTable;
+use App\Filament\Warehouse\Widgets\WarehousePanelStats;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
@@ -10,8 +21,6 @@ use Filament\Pages\Dashboard;
 use Filament\Panel;
 use Filament\PanelProvider;
 use Filament\Support\Colors\Color;
-use Filament\Widgets\AccountWidget;
-use Filament\Widgets\FilamentInfoWidget;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
@@ -31,16 +40,22 @@ class WarehousePanelProvider extends PanelProvider
                 'primary' => Color::Teal,
             ])
             ->resources([
-                \App\Filament\Resources\InventoryItems\InventoryItemResource::class,
-                \App\Filament\Resources\Dispatches\DispatchResource::class,
-                \App\Filament\Resources\StockMovements\StockMovementResource::class,
+                InventoryItemResource::class,
+                WarehouseResource::class,
+                GoodsReceiptResource::class,
+                DispatchResource::class,
+                StockMovementResource::class,
+                StockTransferResource::class,
+                StockAdjustmentResource::class,
             ])
             ->pages([
                 Dashboard::class,
-                \App\Filament\Pages\StockOverview::class,
+                StockOverview::class,
             ])
-            ->discoverWidgets(in: app_path('Filament/Warehouse/Widgets'), for: 'App\Filament\Warehouse\Widgets')
             ->widgets([
+                WarehousePanelStats::class,
+                RecentStockMovementsTable::class,
+                PendingPickListTable::class,
             ])
             ->middleware([
                 EncryptCookies::class,

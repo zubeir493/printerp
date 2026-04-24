@@ -2,8 +2,10 @@
 
 namespace App\Filament\Resources\MaterialRequests;
 
+use App\Filament\Support\PanelAccess;
 use App\Filament\Resources\MaterialRequests\Pages\ManageMaterialRequests;
 use App\Models\MaterialRequest;
+use App\Services\MaterialIssueService;
 use BackedEnum;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
@@ -24,6 +26,11 @@ class MaterialRequestResource extends Resource
     protected static ?string $model = MaterialRequest::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedArchiveBoxArrowDown;
+
+    public static function canViewAny(): bool
+    {
+        return PanelAccess::canAccessWarehouseSection();
+    }
 
     public static function form(Schema $schema): Schema
     {
@@ -82,12 +89,14 @@ class MaterialRequestResource extends Resource
                 TextColumn::make('status')
                     ->badge()
                     ->getStateUsing(function ($record) {
+                        if ($record->pendingIssueApprovals()->exists()) return 'Awaiting Approval';
                         if ($record->issued_quantity >= $record->requested_quantity) return 'Issued';
                         if ($record->issued_quantity > 0) return 'Partial';
                         return 'Pending';
                     })
                     ->color(fn($state) => match ($state) {
                         'Issued' => 'success',
+                        'Awaiting Approval' => 'warning',
                         'Partial' => 'warning',
                         default => 'gray',
                     }),
@@ -124,7 +133,7 @@ class MaterialRequestResource extends Resource
                     ->label('Issue')
                     ->icon('heroicon-m-archive-box-arrow-down')
                     ->color('warning')
-                    ->hidden(fn($record) => $record->issued_quantity >= $record->requested_quantity)
+                    ->visible(fn($record) => PanelAccess::canAccessWarehouseSection() && $record->issued_quantity < $record->requested_quantity && !$record->pendingIssueApprovals()->exists())
                     ->form([
                         \Filament\Forms\Components\Select::make('warehouse_id')
                             ->label('Warehouse')
@@ -136,30 +145,18 @@ class MaterialRequestResource extends Resource
                             ->numeric()
                             ->required()
                             ->default(fn($record) => $record->requested_quantity - $record->issued_quantity)
-                            ->maxValue(fn($record) => $record->requested_quantity - $record->issued_quantity),
+                            ->maxValue(fn($record) => $record->requested_quantity - $record->issued_quantity)
+                            ->helperText('If this quantity exceeds the required amount for the task, it will wait for admin or operations approval before stock is moved.'),
                     ])
                     ->action(function ($record, array $data) {
                         try {
-                            \DB::beginTransaction();
-                            $inventoryService = app(\App\Services\InventoryService::class);
-
-                            $inventoryService->consumeStock(
-                                $record->inventory_item_id,
-                                $data['warehouse_id'],
-                                $data['quantity'],
-                                \App\Models\JobOrder::class,
-                                $record->jobOrderTask->job_order_id
-                            );
-
-                            $record->increment('issued_quantity', $data['quantity']);
-                            \DB::commit();
+                            $result = app(MaterialIssueService::class)->issue($record, (int) $data['warehouse_id'], (float) $data['quantity'], auth()->user());
 
                             \Filament\Notifications\Notification::make()
-                                ->title('Materials Issued')
+                                ->title($result['status'] === 'pending_approval' ? 'Over-issue sent for approval' : 'Materials Issued')
                                 ->success()
                                 ->send();
                         } catch (\Exception $e) {
-                            \DB::rollBack();
                             \Filament\Notifications\Notification::make()
                                 ->title('Error Issuing Materials')
                                 ->body($e->getMessage())
@@ -167,8 +164,6 @@ class MaterialRequestResource extends Resource
                                 ->send();
                         }
                     }),
-                EditAction::make(),
-                DeleteAction::make(),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([

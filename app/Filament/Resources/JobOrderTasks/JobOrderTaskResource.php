@@ -9,6 +9,7 @@ use App\Filament\Resources\JobOrderTasks\Schemas\JobOrderTaskForm;
 use App\Filament\Resources\JobOrderTasks\Tables\JobOrderTasksTable;
 use App\Models\JobOrderTask;
 use BackedEnum;
+use Filament\Facades\Filament;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
@@ -18,15 +19,22 @@ class JobOrderTaskResource extends Resource
 {
     protected static ?string $model = JobOrderTask::class;
 
-    protected static ?string $navigationParentItem = 'Job Orders';
-
     protected static ?string $navigationLabel = 'Tasks';
+
+    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedBriefcase;
 
     protected static ?string $recordTitleAttribute = 'name';
 
     public static function canCreate(): bool
     {
         return false;
+    }
+
+    public static function getNavigationParentItem(): ?string
+    {
+        return Filament::getCurrentPanel()?->getId() === 'admin'
+            ? 'Job Orders'
+            : null;
     }
 
     public static function form(Schema $schema): Schema

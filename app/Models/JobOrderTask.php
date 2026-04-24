@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use App\Models\Size;
 
 class JobOrderTask extends Model
@@ -18,6 +19,7 @@ class JobOrderTask extends Model
      */
     protected $fillable = [
         'job_order_id',
+        'designer_id',
         'name',
         'quantity',
         'task_cost',
@@ -36,6 +38,7 @@ class JobOrderTask extends Model
         return [
             'id' => 'integer',
             'job_order_id' => 'integer',
+            'designer_id' => 'integer',
             'task_cost' => 'decimal:2',
             'paper' => 'array',
         ];
@@ -46,9 +49,19 @@ class JobOrderTask extends Model
         return $this->belongsTo(JobOrder::class);
     }
 
+    public function designer(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'designer_id');
+    }
+
     public function dispatchItems(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
         return $this->hasMany(DispatchItem::class);
+    }
+
+    public function productionPlanItems(): HasMany
+    {
+        return $this->hasMany(ProductionPlanItem::class);
     }
 
     public function sizeItem(): BelongsTo

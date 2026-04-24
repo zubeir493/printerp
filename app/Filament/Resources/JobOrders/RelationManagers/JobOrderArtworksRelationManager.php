@@ -98,6 +98,37 @@ class JobOrderArtworksRelationManager extends RelationManager
                     ->color('success')
                     ->hidden(fn($record) => $record->is_approved)
                     ->action(fn($record) => $record->update(['is_approved' => true])),
+                \Filament\Actions\Action::make('sendEmail')
+                    ->label('Email Link')
+                    ->icon('heroicon-m-envelope')
+                    ->color('info')
+                    ->form([
+                        \Filament\Forms\Components\TextInput::make('recipient_email')
+                            ->label('Recipient Email')
+                            ->email()
+                            ->required(),
+                        \Filament\Forms\Components\TextInput::make('subject')
+                            ->label('Subject')
+                            ->default(fn($record) => 'Artwork Download Link: ' . basename($record->filename)),
+                        \Filament\Forms\Components\Textarea::make('message')
+                            ->label('Message')
+                            ->rows(3),
+                    ])
+                    ->action(function ($record, array $data) {
+                        \App\Models\EmailLog::create([
+                            'recipient_email' => $data['recipient_email'],
+                            'subject' => $data['subject'],
+                            'message' => $data['message'],
+                            'artwork_id' => $record->id,
+                            'sent_by' => \Illuminate\Support\Facades\Auth::id(),
+                            'sent_at' => now(),
+                        ]);
+
+                        \Filament\Notifications\Notification::make()
+                            ->title('Email sent successfully')
+                            ->success()
+                            ->send();
+                    }),
                 DeleteAction::make(),
             ])
             ->toolbarActions([

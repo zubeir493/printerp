@@ -1,0 +1,73 @@
+<?php
+
+namespace App\Enums;
+
+enum PaymentTransactionType: string
+{
+    case CUSTOMER_RECEIPT = 'customer_receipt';
+    case SUPPLIER_PAYMENT = 'supplier_payment';
+    case DIRECT_EXPENSE = 'direct_expense';
+    case PETTY_CASH_FUNDING = 'petty_cash_funding';
+    case PETTY_CASH_EXPENSE = 'petty_cash_expense';
+
+    public function label(): string
+    {
+        return match ($this) {
+            self::CUSTOMER_RECEIPT => 'Customer Receipt',
+            self::SUPPLIER_PAYMENT => 'Supplier / Bill Payment',
+            self::DIRECT_EXPENSE => 'Direct Expense',
+            self::PETTY_CASH_FUNDING => 'Petty Cash Funding',
+            self::PETTY_CASH_EXPENSE => 'Petty Cash Expense',
+        };
+    }
+
+    public function description(): string
+    {
+        return match ($this) {
+            self::CUSTOMER_RECEIPT => 'Money received from a customer. Debits cash/bank and credits AR.',
+            self::SUPPLIER_PAYMENT => 'Payment to settle a supplier or bill. Debits AP and credits cash/bank.',
+            self::DIRECT_EXPENSE => 'Normal operating expense paid from cash/bank. Debits an expense account.',
+            self::PETTY_CASH_FUNDING => 'Moves money into petty cash. Debits petty cash and credits cash/bank.',
+            self::PETTY_CASH_EXPENSE => 'Expense paid out of petty cash. Debits expense and credits petty cash.',
+        };
+    }
+
+    public function requiresPartner(): bool
+    {
+        return in_array($this, [
+            self::CUSTOMER_RECEIPT,
+            self::SUPPLIER_PAYMENT,
+        ], true);
+    }
+
+    public function partnerLabel(): string
+    {
+        return match ($this) {
+            self::CUSTOMER_RECEIPT => 'Customer',
+            self::SUPPLIER_PAYMENT => 'Supplier / Vendor',
+            default => 'Counterparty',
+        };
+    }
+
+    public function direction(): string
+    {
+        return match ($this) {
+            self::CUSTOMER_RECEIPT => 'inbound',
+            default => 'outbound',
+        };
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public static function options(): array
+    {
+        $options = [];
+
+        foreach (self::cases() as $case) {
+            $options[$case->value] = $case->label();
+        }
+
+        return $options;
+    }
+}

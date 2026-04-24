@@ -21,13 +21,19 @@ class SystemBottlenecksChart extends ChartWidget
         return [
             'datasets' => [
                 [
-                    'label' => 'Bottlenecks',
+                    'label' => 'Pending Items',
                     'data' => [$joPending, $artworkPending, $poPending],
                     'backgroundColor' => [
-                        '#f59e0b', // Amber
-                        '#ef4444', // Red
-                        '#3b82f6', // Blue
+                        'rgba(245, 158, 11, 0.8)', // Amber
+                        'rgba(239, 68, 68, 0.8)', // Red
+                        'rgba(59, 130, 246, 0.8)', // Blue
                     ],
+                    'borderColor' => [
+                        '#f59e0b',
+                        '#ef4444',
+                        '#3b82f6',
+                    ],
+                    'borderWidth' => 2,
                 ],
             ],
             'labels' => ['Draft Job Orders', 'Pending Artworks', 'Awaiting Purchases'],
@@ -36,6 +42,6 @@ class SystemBottlenecksChart extends ChartWidget
 
     protected function getType(): string
     {
-        return 'polarArea';
+        return 'bar';
     }
 }

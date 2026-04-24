@@ -7,6 +7,7 @@ use App\Filament\Resources\PurchaseOrders\Pages\EditPurchaseOrder;
 use App\Filament\Resources\PurchaseOrders\Pages\ListPurchaseOrders;
 use App\Filament\Resources\PurchaseOrders\Schemas\PurchaseOrderForm;
 use App\Filament\Resources\PurchaseOrders\Tables\PurchaseOrdersTable;
+use App\Filament\Support\PanelAccess;
 use App\Models\PurchaseOrder;
 use BackedEnum;
 use Filament\Resources\Resource;
@@ -35,10 +36,15 @@ class PurchaseOrderResource extends Resource
 
     public static function getRelations(): array
     {
-        return [
-            \App\Filament\Resources\PurchaseOrders\RelationManagers\PaymentsRelationManager::class,
+        $relations = [
             \App\Filament\Resources\PurchaseOrders\RelationManagers\GoodsReceiptsRelationManager::class,
         ];
+
+        if (PanelAccess::canAccessFinanceSection()) {
+            $relations[] = \App\Filament\Resources\PurchaseOrders\RelationManagers\PaymentsRelationManager::class;
+        }
+
+        return $relations;
     }
 
     public static function getPages(): array

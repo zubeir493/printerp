@@ -2,12 +2,14 @@
 
 namespace App\Filament\Resources\JobOrders\Tables;
 
+use App\Filament\Support\PanelAccess;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;
@@ -27,11 +29,18 @@ class JobOrdersTable
                     ->sortable(),
                 TextColumn::make('status')
                     ->badge()
-                    ->color(fn(string $state): string => match ($state) {
+                    ->color(fn(?string $state): string => match ($state) {
                         'active' => 'primary',
                         'completed' => 'success',
                         'cancelled' => 'danger',
+                        default => 'gray',
                     }),
+                TextColumn::make('submission_date')
+                    ->label('Submission Date')
+                    ->date()
+                    ->sortable()
+                    ->color(fn ($record) => $record->submission_date && $record->submission_date->isBefore(today()) && !in_array($record->status, ['completed', 'cancelled']) ? 'danger' : null)
+                    ->description(fn ($record) => $record->submission_date && $record->submission_date->isBefore(today()) && !in_array($record->status, ['completed', 'cancelled']) ? 'Late' : null),
                 TextColumn::make('tasks_summary')
                     ->label('Tasks')
                     ->getStateUsing(fn($record) => $record->jobOrderTasks()->where('status', 'completed')->count() . ' / ' . $record->jobOrderTasks()->count())
@@ -48,6 +57,7 @@ class JobOrdersTable
                     }),
                 TextColumn::make('total_price')
                     ->suffix(' birr')
+                    ->visible(fn () => PanelAccess::canSeeMoneyValues())
                     ->sortable(),
                 IconColumn::make('advance_paid')
                     ->boolean()
@@ -76,7 +86,10 @@ class JobOrdersTable
                     ])
                     ->preload()
                     ->searchable(),
-
+                Filter::make('late_jobs')
+                    ->label('Late Job Orders')
+                    ->query(fn ($query) => $query->late())
+                    ->toggle(),
             ])
             ->actions([
                 EditAction::make(),

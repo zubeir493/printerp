@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\JobOrders\RelationManagers;
 
+use App\Filament\Support\PanelAccess;
 use Filament\Actions\AssociateAction;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\CreateAction;
@@ -24,6 +25,11 @@ use App\Models\Payment;
 class PaymentsRelationManager extends RelationManager
 {
     protected static string $relationship = 'paymentAllocations';
+
+    public static function canViewForRecord($ownerRecord, string $pageClass): bool
+    {
+        return PanelAccess::canAccessFinanceSection();
+    }
 
     public function form(Schema $schema): Schema
     {

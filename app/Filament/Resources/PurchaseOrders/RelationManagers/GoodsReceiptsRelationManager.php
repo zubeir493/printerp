@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\PurchaseOrders\RelationManagers;
 
+use App\Filament\Support\PanelAccess;
 use Filament\Actions\AssociateAction;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\CreateAction;
@@ -19,6 +20,11 @@ use Filament\Tables\Table;
 class GoodsReceiptsRelationManager extends RelationManager
 {
     protected static string $relationship = 'goodsReceipts';
+
+    public static function canViewForRecord($ownerRecord, string $pageClass): bool
+    {
+        return PanelAccess::canAccessWarehouseSection();
+    }
 
     public function form(Schema $schema): Schema
     {

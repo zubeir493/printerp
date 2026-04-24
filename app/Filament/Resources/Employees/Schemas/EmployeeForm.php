@@ -68,31 +68,33 @@ class EmployeeForm
                                 TextInput::make('account_number'),
                             ])->columnSpan(3)->columns(2),
 
-                        Group::make()
+                        Section::make()
                             ->schema([
                                 Placeholder::make('image_view')
                                     ->label('Photo')
                                     ->visibleOn('view')
                                     ->content(function ($record) {
-                                        if (!$record || !$record->image) {
-                                            return new \Illuminate\Support\HtmlString('<img src="https://ui-avatars.com/api/?name=' . urlencode($record->full_name) . '&color=FFFFFF&background=020617" class="w-full aspect-square rounded-xl object-cover shadow-sm" />');
+                                        $name = $record?->full_name ?? 'Employee';
+
+                                        if (! $record || ! $record->image) {
+                                            return new \Illuminate\Support\HtmlString('<img src="https://ui-avatars.com/api/?name=' . urlencode($name) . '&color=FFFFFF&background=020617" class="w-full aspect-square rounded-xl object-cover shadow-sm" />');
                                         }
                                         $url = \Illuminate\Support\Facades\Storage::disk('s3')->temporaryUrl($record->image, now()->addMinutes(10));
                                         return new \Illuminate\Support\HtmlString('<img src="' . $url . '" class="w-full aspect-square rounded-xl object-cover shadow-sm" />');
                                     })
-                                    ->columnSpan(3),
+                                    ->columnSpan(5),
                                 FileUpload::make('image')
                                     ->image()
                                     ->imageEditor()
+                                    ->panelAspectRatio('1:1')
                                     ->imageAspectRatio('1:1')
                                     ->maxSize(1024)
                                     ->disk('s3')
                                     ->directory('employees/photos')
                                     ->label('Photo')
-                                    ->downloadable()
                                     ->previewable(false)
                                     ->hiddenOn('view')
-                                    ->columnSpan(3),
+                                    ->columnSpan(5),
                                 DatePicker::make('hire_date')
                                     ->required()
                                     ->default(now())

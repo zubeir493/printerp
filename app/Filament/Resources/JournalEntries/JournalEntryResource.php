@@ -2,8 +2,8 @@
 
 namespace App\Filament\Resources\JournalEntries;
 
+use App\Filament\Support\PanelAccess;
 use App\Filament\Resources\JournalEntries\Pages\CreateJournalEntry;
-use App\Filament\Resources\JournalEntries\Pages\EditJournalEntry;
 use App\Filament\Resources\JournalEntries\Pages\ListJournalEntries;
 use App\Filament\Resources\JournalEntries\Pages\ViewJournalEntry;
 use App\Filament\Resources\JournalEntries\Schemas\JournalEntryForm;
@@ -27,6 +27,11 @@ class JournalEntryResource extends Resource
         return JournalEntryForm::configure($schema);
     }
 
+    public static function canViewAny(): bool
+    {
+        return PanelAccess::canAccessFinanceSection();
+    }
+
 
 
     public static function table(Table $table): Table
@@ -48,7 +53,6 @@ class JournalEntryResource extends Resource
             'index' => ListJournalEntries::route('/'),
             'create' => CreateJournalEntry::route('/create'),
             'view' => ViewJournalEntry::route('/{record}'),
-            'edit' => EditJournalEntry::route('/{record}/edit'),
         ];
     }
 }

@@ -2,6 +2,23 @@
 
 namespace App\Providers\Filament;
 
+use App\Filament\Finance\Widgets\FinancePanelStats;
+use App\Filament\Finance\Widgets\OverdueInvoicesTable;
+use App\Filament\Finance\Widgets\UnallocatedPaymentsTable;
+use App\Filament\Finance\Pages\AccountStatementReport;
+use App\Filament\Finance\Pages\BalanceSheetReport;
+use App\Filament\Finance\Pages\GeneralLedgerReport;
+use App\Filament\Finance\Pages\IncomeStatementReport;
+use App\Filament\Finance\Pages\PayablesAgingReport;
+use App\Filament\Finance\Pages\ProfitLossStatementReport;
+use App\Filament\Finance\Pages\ReceivablesAgingReport;
+use App\Filament\Finance\Pages\TrialBalanceReport;
+use App\Filament\Resources\Accounts\AccountResource;
+use App\Filament\Resources\JournalEntries\JournalEntryResource;
+use App\Filament\Resources\PaymentAllocations\PaymentAllocationResource;
+use App\Filament\Resources\Payments\PaymentResource;
+use App\Filament\Resources\PurchaseInvoices\PurchaseInvoiceResource;
+use App\Filament\Resources\SalesInvoices\SalesInvoiceResource;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
@@ -10,8 +27,6 @@ use Filament\Pages\Dashboard;
 use Filament\Panel;
 use Filament\PanelProvider;
 use Filament\Support\Colors\Color;
-use Filament\Widgets\AccountWidget;
-use Filament\Widgets\FilamentInfoWidget;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
@@ -31,16 +46,29 @@ class FinancePanelProvider extends PanelProvider
                 'primary' => Color::Emerald,
             ])
             ->resources([
-                \App\Filament\Resources\Accounts\AccountResource::class,
-                \App\Filament\Resources\JournalEntries\JournalEntryResource::class,
-                \App\Filament\Resources\Payments\PaymentResource::class,
+                AccountResource::class,
+                JournalEntryResource::class,
+                SalesInvoiceResource::class,
+                PurchaseInvoiceResource::class,
+                PaymentResource::class,
+                PaymentAllocationResource::class,
             ])
             ->discoverPages(in: app_path('Filament/Finance/Pages'), for: 'App\Filament\Finance\Pages')
             ->pages([
                 Dashboard::class,
+                AccountStatementReport::class,
+                BalanceSheetReport::class,
+                GeneralLedgerReport::class,
+                IncomeStatementReport::class,
+                PayablesAgingReport::class,
+                ProfitLossStatementReport::class,
+                ReceivablesAgingReport::class,
+                TrialBalanceReport::class,
             ])
-            ->discoverWidgets(in: app_path('Filament/Finance/Widgets'), for: 'App\Filament\Finance\Widgets')
             ->widgets([
+                FinancePanelStats::class,
+                UnallocatedPaymentsTable::class,
+                OverdueInvoicesTable::class,
             ])
             ->middleware([
                 EncryptCookies::class,

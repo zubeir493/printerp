@@ -9,6 +9,7 @@ use App\Filament\Resources\PurchaseOrderItems\Schemas\PurchaseOrderItemForm;
 use App\Filament\Resources\PurchaseOrderItems\Tables\PurchaseOrderItemsTable;
 use App\Models\PurchaseOrderItem;
 use BackedEnum;
+use Filament\Facades\Filament;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
@@ -18,13 +19,18 @@ class PurchaseOrderItemResource extends Resource
 {
     protected static ?string $model = PurchaseOrderItem::class;
 
-    protected static ?string $navigationParentItem = 'Purchase Orders';
-
     protected static ?string $navigationLabel = 'Items';
 
     public static function canCreate(): bool
     {
         return false;
+    }
+
+    public static function getNavigationParentItem(): ?string
+    {
+        return Filament::getCurrentPanel()?->getId() === 'admin'
+            ? 'Purchase Orders'
+            : null;
     }
 
     public static function form(Schema $schema): Schema

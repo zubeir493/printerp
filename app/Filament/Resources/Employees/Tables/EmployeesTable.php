@@ -16,20 +16,10 @@ class EmployeesTable
     {
         return $table
             ->columns([
-                TextColumn::make('image')
-                    ->label('Photo')
-                    ->formatStateUsing(function ($state, $record) {
-                        if (!$state) {
-                            return new \Illuminate\Support\HtmlString('<img src="https://ui-avatars.com/api/?name=' . urlencode($record->full_name) . '&color=FFFFFF&background=020617" class="w-10 h-10 rounded-full" />');
-                        }
-                        $url = \Illuminate\Support\Facades\Storage::disk('s3')->temporaryUrl($state, now()->addMinutes(10));
-                        return new \Illuminate\Support\HtmlString('<img src="' . $url . '" class="w-10 h-10 rounded-full object-cover" />');
-                    })
-                    ->width('50px')
-                    ->html(),
                 TextColumn::make('full_name')
                     ->label('Name')
                     ->description(fn($record) => $record->employee_id)
+                    ->weight('bold')
                     ->searchable(['first_name', 'last_name']),
                 TextColumn::make('department')
                     ->searchable()

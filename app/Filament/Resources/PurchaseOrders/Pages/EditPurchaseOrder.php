@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\PurchaseOrders\Pages;
 
+use App\Filament\Support\PanelAccess;
 use App\Filament\Resources\PurchaseOrders\PurchaseOrderResource;
 use App\Models\PurchaseOrder;
 use Filament\Actions\Action;
@@ -24,7 +25,7 @@ class EditPurchaseOrder extends EditRecord
                 ->label('Receive Items')
                 ->icon('heroicon-o-truck')
                 ->color('success')
-                ->visible(fn(PurchaseOrder $record) => !in_array($record->status, ['draft', 'cancelled']))
+                ->visible(fn(PurchaseOrder $record) => PanelAccess::canAccessWarehouseSection() && !in_array($record->status, ['draft', 'cancelled']))
                 ->form([
                     Select::make('warehouse_id')
                         ->label('Warehouse')

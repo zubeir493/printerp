@@ -1,0 +1,55 @@
+<?php
+
+namespace App\Filament\Resources\GoodsReceipts;
+
+use App\Filament\Resources\GoodsReceipts\Pages\ListGoodsReceipts;
+use App\Models\GoodsReceipt;
+use BackedEnum;
+use Filament\Resources\Resource;
+use Filament\Support\Icons\Heroicon;
+use Filament\Tables;
+use Filament\Tables\Table;
+
+class GoodsReceiptResource extends Resource
+{
+    protected static ?string $model = GoodsReceipt::class;
+
+    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedInboxArrowDown;
+
+    public static function canCreate(): bool
+    {
+        return false;
+    }
+
+    public static function table(Table $table): Table
+    {
+        return $table
+            ->columns([
+                Tables\Columns\TextColumn::make('receipt_number')
+                    ->label('Receipt')
+                    ->searchable()
+                    ->sortable(),
+                Tables\Columns\TextColumn::make('purchaseOrder.po_number')
+                    ->label('PO')
+                    ->searchable()
+                    ->sortable(),
+                Tables\Columns\TextColumn::make('warehouse.name')
+                    ->label('Warehouse')
+                    ->toggleable(),
+                Tables\Columns\TextColumn::make('receipt_date')
+                    ->date()
+                    ->sortable(),
+                Tables\Columns\TextColumn::make('status')
+                    ->badge()
+                    ->sortable(),
+            ])
+            ->defaultSort('receipt_date', 'desc');
+    }
+
+    public static function getPages(): array
+    {
+        return [
+            'index' => ListGoodsReceipts::route('/'),
+        ];
+    }
+}

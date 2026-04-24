@@ -8,14 +8,13 @@ use App\Filament\Resources\JobOrders\Pages\EditJobOrder;
 use App\Filament\Resources\JobOrders\Pages\ListJobOrders;
 use App\Filament\Resources\JobOrders\Schemas\JobOrderForm;
 use App\Filament\Resources\JobOrders\Tables\JobOrdersTable;
+use App\Filament\Support\PanelAccess;
 use App\Models\JobOrder;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
-use Filament\Tables;
 use Filament\Tables\Table;
-use Illuminate\Support\Facades\Auth;
 
 class JobOrderResource extends Resource
 {
@@ -43,11 +42,7 @@ class JobOrderResource extends Resource
             \App\Filament\Resources\JobOrders\RelationManagers\JobOrderArtworksRelationManager::class,
         ];
 
-        if (Auth::check() && in_array(Auth::user()->role?->value ?? Auth::user()->role, [
-            \App\UserRole::Admin->value,
-            \App\UserRole::Operations->value,
-            \App\UserRole::Finance->value,
-        ])) {
+        if (PanelAccess::canAccessFinanceSection()) {
             $relations[] = \App\Filament\Resources\JobOrders\RelationManagers\PaymentsRelationManager::class;
         }
 

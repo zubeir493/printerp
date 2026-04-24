@@ -3,6 +3,8 @@
 namespace App\Filament\Resources\JobOrders\Pages;
 
 use App\Filament\Resources\JobOrders\JobOrderResource;
+use App\Filament\Support\PanelAccess;
+use App\Services\MaterialIssueService;
 use Filament\Actions\DeleteAction;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
@@ -22,9 +24,11 @@ class EditJobOrder extends EditRecord
                 ->color('primary')
                 ->visible(
                     fn($record) =>
+                    PanelAccess::canAccessWarehouseSection() &&
                     !in_array($record->status, ['completed', 'cancelled']) &&
                         $record->materialRequests()
                         ->whereColumn('issued_quantity', '<', 'requested_quantity')
+                        ->whereDoesntHave('pendingIssueApprovals', fn ($query) => $query->where('status', 'pending'))
                         ->whereHas('jobOrderTask', fn($q) => $q->whereNotIn('status', ['completed', 'cancelled']))
                         ->exists()
                 )
@@ -65,9 +69,11 @@ class EditJobOrder extends EditRecord
                                     $stock = $warehouseId ? \App\Models\InventoryBalance::where('warehouse_id', $warehouseId)->where('inventory_item_id', $itemId)->value('quantity_on_hand') ?? 0 : 0;
                                     return min($pending, $stock);
                                 })
+                                ->helperText('If this exceeds the required quantity, it will be queued for approval instead of issuing immediately.')
                         ])->columns(2)
                         ->default(fn() => $record->materialRequests()
                             ->whereColumn('issued_quantity', '<', 'requested_quantity')
+                            ->whereDoesntHave('pendingIssueApprovals', fn ($query) => $query->where('status', 'pending'))
                             ->whereHas('jobOrderTask', fn($q) => $q->whereNotIn('status', ['completed', 'cancelled']))
                             ->get()
                             ->map(fn($mr) => [
@@ -78,38 +84,24 @@ class EditJobOrder extends EditRecord
                 ])
                 ->action(function ($record, $data) {
                     try {
-                        $inventoryService = app(\App\Services\InventoryService::class);
-                        \DB::beginTransaction();
+                        $results = ['issued' => 0, 'pending_approval' => 0];
+
                         foreach ($data['items'] as $item) {
                             if ($item['quantity'] <= 0) continue;
 
-                            $mr = \App\Models\MaterialRequest::find($item['material_request_id']);
-
-                            $stock = \App\Models\InventoryBalance::where('warehouse_id', $data['warehouse_id'])
-                                ->where('inventory_item_id', $mr->inventory_item_id)
-                                ->value('quantity_on_hand') ?? 0;
-
-                            if ($stock < $item['quantity']) {
-                                throw new \Exception("Insufficient stock for {$mr->inventoryItem->name} in the selected warehouse.");
-                            }
-
-                            $inventoryService->consumeStock(
-                                $mr->inventory_item_id,
-                                $data['warehouse_id'],
-                                $item['quantity'],
-                                'consumption',
-                                $record->id
-                            );
-                            $mr->increment('issued_quantity', $item['quantity']);
+                            $mr = \App\Models\MaterialRequest::findOrFail($item['material_request_id']);
+                            $result = app(MaterialIssueService::class)->issue($mr, (int) $data['warehouse_id'], (float) $item['quantity'], auth()->user());
+                            $results[$result['status']]++;
                         }
-                        \DB::commit();
 
                         \Filament\Notifications\Notification::make()
-                            ->title('Materials Issued Successfully')
+                            ->title(trim(collect([
+                                $results['issued'] ? "{$results['issued']} item(s) issued" : null,
+                                $results['pending_approval'] ? "{$results['pending_approval']} item(s) sent for approval" : null,
+                            ])->filter()->implode(' | ')) ?: 'No materials processed')
                             ->success()
                             ->send();
                     } catch (\Exception $e) {
-                        \DB::rollBack();
                         \Filament\Notifications\Notification::make()
                             ->title('Error Issuing Materials')
                             ->body($e->getMessage())
@@ -124,6 +116,7 @@ class EditJobOrder extends EditRecord
                 ->color('warning')
                 ->visible(
                     fn($record) =>
+                    PanelAccess::canAccessWarehouseSection() &&
                     $record->status !== 'completed' &&
                         $record->materialRequests()
                         ->where('issued_quantity', '>', 0)

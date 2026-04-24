@@ -16,4 +16,11 @@ class ListPayments extends ListRecords
             CreateAction::make(),
         ];
     }
+
+    protected function getHeaderWidgets(): array
+    {
+        return [
+            \App\Filament\Widgets\PaymentsStatsWidget::class,
+        ];
+    }
 }
