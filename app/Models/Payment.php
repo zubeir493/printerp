@@ -24,8 +24,12 @@ class Payment extends Model
         'direction',
         'method',
         'reference',
+        'transaction_type',
         'payment_type',
         'account_id',
+        'expense_account_id',
+        'petty_cash_account_id',
+        'voided_at',
     ];
 
     /**
@@ -41,6 +45,9 @@ class Payment extends Model
             'payment_date' => 'date',
             'amount' => 'decimal:2',
             'account_id' => 'integer',
+            'expense_account_id' => 'integer',
+            'petty_cash_account_id' => 'integer',
+            'voided_at' => 'datetime',
         ];
     }
 

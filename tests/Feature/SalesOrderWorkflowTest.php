@@ -4,6 +4,8 @@ namespace Tests\Feature;
 
 use App\Models\InventoryBalance;
 use App\Models\InventoryItem;
+use App\Models\Account;
+use App\Models\Payment;
 use App\Models\Partner;
 use App\Models\SalesOrder;
 use App\Models\SalesOrderItem;
@@ -15,7 +17,14 @@ class SalesOrderWorkflowTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_sales_order_completion_creates_stock_movement_and_journal_entry()
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        config()->set('logging.default', 'errorlog');
+    }
+
+    public function test_cash_sales_order_completion_creates_stock_movement_sale_and_payment_entries()
     {
         $warehouse = Warehouse::create([
             'name' => 'Sales Warehouse',
@@ -49,6 +58,9 @@ class SalesOrderWorkflowTest extends TestCase
             'warehouse_id' => $warehouse->id,
             'partner_id' => $customer->id,
             'order_date' => now(),
+            'payment_mode' => 'cash',
+            'payment_method' => 'cash',
+            'payment_reference' => 'POS-001',
             'status' => 'draft',
         ]);
 
@@ -74,6 +86,22 @@ class SalesOrderWorkflowTest extends TestCase
             'status' => 'posted',
         ]);
 
+        $this->assertDatabaseHas('payments', [
+            'partner_id' => $customer->id,
+            'amount' => 200.00,
+            'transaction_type' => 'customer_receipt',
+            'method' => 'cash',
+        ]);
+
+        $payment = Payment::query()->first();
+
+        $this->assertDatabaseHas('payment_allocations', [
+            'payment_id' => $payment->id,
+            'allocatable_type' => SalesOrder::class,
+            'allocatable_id' => $salesOrder->id,
+            'allocated_amount' => 200.00,
+        ]);
+
         $this->assertDatabaseHas('stock_movements', [
             'reference_type' => SalesOrder::class,
             'reference_id' => $salesOrder->id,
@@ -81,6 +109,14 @@ class SalesOrderWorkflowTest extends TestCase
             'warehouse_id' => $warehouse->id,
             'quantity' => -20,
             'type' => 'sale',
+        ]);
+
+        $arAccount = Account::getSystemAccount(Account::CODE_AR, 'Accounts Receivable', 'Asset');
+
+        $this->assertDatabaseHas('journal_items', [
+            'account_id' => $arAccount->id,
+            'debit' => 200.00,
+            'credit' => 0.00,
         ]);
     }
 
@@ -132,5 +168,67 @@ class SalesOrderWorkflowTest extends TestCase
         ]);
 
         $salesOrder->update(['status' => 'completed']);
+    }
+
+    public function test_credit_sales_order_completion_posts_sale_without_creating_payment(): void
+    {
+        $warehouse = Warehouse::create([
+            'name' => 'Credit Sales Warehouse',
+            'code' => 'SALE3',
+        ]);
+
+        $customer = Partner::create([
+            'name' => 'Credit Customer',
+            'is_customer' => true,
+        ]);
+
+        $item = InventoryItem::create([
+            'name' => 'Packaging Box',
+            'sku' => 'BOX-001',
+            'unit' => 'Piece',
+            'purchase_unit' => 'Piece',
+            'conversion_factor' => 1,
+            'type' => 'finished_good',
+            'is_sellable' => true,
+            'price' => 15.00,
+            'average_cost' => 12.00,
+        ]);
+
+        InventoryBalance::create([
+            'inventory_item_id' => $item->id,
+            'warehouse_id' => $warehouse->id,
+            'quantity_on_hand' => 40,
+        ]);
+
+        $salesOrder = SalesOrder::create([
+            'warehouse_id' => $warehouse->id,
+            'partner_id' => $customer->id,
+            'order_date' => now(),
+            'payment_mode' => 'credit',
+            'status' => 'draft',
+        ]);
+
+        SalesOrderItem::create([
+            'sales_order_id' => $salesOrder->id,
+            'inventory_item_id' => $item->id,
+            'quantity' => 10,
+            'unit_price' => 20.00,
+            'total' => 200.00,
+        ]);
+
+        $salesOrder->update(['status' => 'completed']);
+
+        $this->assertDatabaseMissing('payments', [
+            'partner_id' => $customer->id,
+            'amount' => 200.00,
+        ]);
+
+        $this->assertDatabaseHas('journal_entries', [
+            'source_type' => SalesOrder::class,
+            'source_id' => $salesOrder->id,
+            'status' => 'posted',
+        ]);
+
+        $this->assertSame(200.0, $salesOrder->fresh()->balance);
     }
 }

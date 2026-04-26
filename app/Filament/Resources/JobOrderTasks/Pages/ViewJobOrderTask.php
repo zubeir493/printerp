@@ -210,15 +210,17 @@ class ViewJobOrderTask extends ViewRecord
                 ->action(function ($record, $data) {
                     try {
                         $results = ['issued' => 0, 'pending_approval' => 0];
-
+                        \DB::beginTransaction();
                         foreach ($data['items'] as $item) {
-                            if ($item['quantity'] <= 0) continue;
-
-                            $mr = \App\Models\MaterialRequest::findOrFail($item['material_request_id']);
+                            if (($item['quantity'] ?? 0) <= 0) continue;
+                            $mr = \App\Models\MaterialRequest::find($item['material_request_id']);
+                            if (!$mr) {
+                                throw new \Exception('Material request not found.');
+                            }
                             $result = app(MaterialIssueService::class)->issue($mr, (int) $data['warehouse_id'], (float) $item['quantity'], auth()->user());
                             $results[$result['status']]++;
                         }
-
+                        \DB::commit();
                         \Filament\Notifications\Notification::make()
                             ->title(trim(collect([
                                 $results['issued'] ? "{$results['issued']} item(s) issued" : null,
@@ -227,6 +229,7 @@ class ViewJobOrderTask extends ViewRecord
                             ->success()
                             ->send();
                     } catch (\Exception $e) {
+                        \DB::rollBack();
                         \Filament\Notifications\Notification::make()
                             ->title('Error Issuing Materials')
                             ->body($e->getMessage())

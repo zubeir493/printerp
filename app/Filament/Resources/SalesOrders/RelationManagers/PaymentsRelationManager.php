@@ -1,0 +1,115 @@
+<?php
+
+namespace App\Filament\Resources\SalesOrders\RelationManagers;
+
+use App\Filament\Support\PanelAccess;
+use App\Models\Payment;
+use Filament\Actions\BulkActionGroup;
+use Filament\Actions\CreateAction;
+use Filament\Actions\DeleteAction;
+use Filament\Actions\DeleteBulkAction;
+use Filament\Actions\EditAction;
+use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\Select;
+use Filament\Forms\Components\TextInput;
+use Filament\Resources\RelationManagers\RelationManager;
+use Filament\Schemas\Schema;
+use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Table;
+use Illuminate\Support\Facades\DB;
+
+class PaymentsRelationManager extends RelationManager
+{
+    protected static string $relationship = 'paymentAllocations';
+
+    public static function canViewForRecord($ownerRecord, string $pageClass): bool
+    {
+        return PanelAccess::canAccessFinanceSection();
+    }
+
+    public function form(Schema $schema): Schema
+    {
+        return $schema
+            ->components([
+                TextInput::make('allocated_amount')
+                    ->label('Amount')
+                    ->numeric()
+                    ->required()
+                    ->suffix('Birr')
+                    ->maxValue(function ($record) {
+                        $owner = $this->getOwnerRecord();
+                        $currentAllocation = $record ? $record->allocated_amount : 0;
+
+                        return max(0, $owner->total - ($owner->paid_amount - $currentAllocation));
+                    }),
+                Select::make('method')
+                    ->options([
+                        'cash' => 'Cash',
+                        'bank' => 'Bank Transfer',
+                        'cheque' => 'Cheque',
+                    ])
+                    ->required(),
+                TextInput::make('reference')
+                    ->maxLength(255),
+                DatePicker::make('payment_date')
+                    ->default(now())
+                    ->required(),
+            ]);
+    }
+
+    public function table(Table $table): Table
+    {
+        return $table
+            ->recordTitleAttribute('payment.payment_number')
+            ->columns([
+                TextColumn::make('payment.payment_number')
+                    ->label('Payment #')
+                    ->searchable(),
+                TextColumn::make('payment.payment_date')
+                    ->label('Date')
+                    ->date(),
+                TextColumn::make('allocated_amount')
+                    ->label('Allocated')
+                    ->suffix(' Birr'),
+                TextColumn::make('payment.method')
+                    ->label('Method'),
+                TextColumn::make('payment.reference')
+                    ->label('Reference'),
+            ])
+            ->headerActions([
+                CreateAction::make()
+                    ->using(function (array $data): \Illuminate\Database\Eloquent\Model {
+                        return DB::transaction(function () use ($data) {
+                            $salesOrder = $this->getOwnerRecord();
+                            $nextId = (Payment::max('id') ?? 0) + 1;
+                            $paymentNumber = 'PAY-SO-' . str_pad($nextId, 6, '0', STR_PAD_LEFT);
+
+                            $payment = Payment::create([
+                                'payment_number' => $paymentNumber,
+                                'partner_id' => $salesOrder->partner_id,
+                                'amount' => $data['allocated_amount'],
+                                'direction' => 'inbound',
+                                'transaction_type' => \App\Enums\PaymentTransactionType::CUSTOMER_RECEIPT->value,
+                                'method' => $data['method'],
+                                'reference' => $data['reference'] ?? null,
+                                'payment_date' => $data['payment_date'],
+                            ]);
+
+                            return $salesOrder->paymentAllocations()->create([
+                                'payment_id' => $payment->id,
+                                'allocated_amount' => $data['allocated_amount'],
+                            ]);
+                        });
+                    }),
+            ])
+            ->recordActions([
+                EditAction::make(),
+                DeleteAction::make(),
+            ])
+            ->toolbarActions([
+                BulkActionGroup::make([
+                    DeleteBulkAction::make(),
+                ]),
+            ]);
+    }
+}

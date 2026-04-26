@@ -150,17 +150,23 @@ class MaterialRequestResource extends Resource
                     ])
                     ->action(function ($record, array $data) {
                         try {
+                            \DB::beginTransaction();
+                            if (!$record) {
+                                throw new \Exception('Material request not found.');
+                            }
                             $result = app(MaterialIssueService::class)->issue($record, (int) $data['warehouse_id'], (float) $data['quantity'], auth()->user());
-
+                            \DB::commit();
                             \Filament\Notifications\Notification::make()
                                 ->title($result['status'] === 'pending_approval' ? 'Over-issue sent for approval' : 'Materials Issued')
                                 ->success()
                                 ->send();
                         } catch (\Exception $e) {
+                            \DB::rollBack();
                             \Filament\Notifications\Notification::make()
                                 ->title('Error Issuing Materials')
                                 ->body($e->getMessage())
                                 ->danger()
+                                ->persistent()
                                 ->send();
                         }
                     }),

@@ -15,6 +15,9 @@ class SalesOrder extends Model
         'warehouse_id',
         'partner_id',
         'order_date',
+        'payment_mode',
+        'payment_method',
+        'payment_reference',
         'subtotal',
         'total',
         'status',
@@ -68,6 +71,11 @@ class SalesOrder extends Model
             'total' => (float) $this->salesOrderItems()->sum('total'),
             'subtotal' => (float) $this->salesOrderItems()->sum('total'),
         ]);
+    }
+
+    public function isCashSale(): bool
+    {
+        return $this->payment_mode === 'cash';
     }
 
     protected static function booted()

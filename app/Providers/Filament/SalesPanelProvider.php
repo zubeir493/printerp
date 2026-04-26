@@ -2,6 +2,7 @@
 
 namespace App\Providers\Filament;
 
+use App\Filament\Resources\SalesOrders\SalesOrderResource;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
@@ -31,7 +32,7 @@ class SalesPanelProvider extends PanelProvider
                 'primary' => Color::Amber,
             ])
             ->resources([
-                //
+                SalesOrderResource::class,
             ])
             ->pages([
                 Dashboard::class,

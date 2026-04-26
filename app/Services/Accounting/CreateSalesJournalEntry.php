@@ -2,11 +2,10 @@
 
 namespace App\Services\Accounting;
 
-use App\Models\SalesOrder;
+use App\Models\Account;
 use App\Models\JournalEntry;
 use App\Models\JournalItem;
-use App\Models\Account;
-use Illuminate\Support\Facades\DB;
+use App\Models\SalesOrder;
 
 class CreateSalesJournalEntry
 {
@@ -24,14 +23,20 @@ class CreateSalesJournalEntry
 
         if ($total <= 0) return;
 
-        $cashAccount = Account::where('name', 'Cash')->orWhere('name', 'Cash in Hand')->first() ?? Account::firstOrCreate(
-            ['name' => 'Cash'],
-            ['type' => 'Asset', 'code' => 'ACC-CASH']
-        );
+        $existingEntry = JournalEntry::query()
+            ->where('source_type', SalesOrder::class)
+            ->where('source_id', $sale->id)
+            ->first();
 
-        $revenueAccount = Account::where('name', 'Sales Revenue')->first() ?? Account::firstOrCreate(
-            ['name' => 'Sales Revenue'],
-            ['type' => 'Revenue', 'code' => 'ACC-REV']
+        if ($existingEntry) {
+            return;
+        }
+
+        $receivablesAccount = Account::getSystemAccount(Account::CODE_AR, 'Accounts Receivable', 'Asset');
+
+        $revenueAccount = Account::firstOrCreate(
+            ['code' => '4000'],
+            ['name' => 'Sales Revenue', 'type' => 'Revenue']
         );
 
         $journalEntry = JournalEntry::create([
@@ -48,7 +53,7 @@ class CreateSalesJournalEntry
 
         JournalItem::create([
             'journal_entry_id' => $journalEntry->id,
-            'account_id' => $cashAccount->id,
+            'account_id' => $receivablesAccount->id,
             'debit' => $total,
             'credit' => 0,
         ]);
