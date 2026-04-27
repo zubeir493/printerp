@@ -40,6 +40,18 @@ class InventoryItemForm
                         ->label('Base Unit')
                         ->hidden(fn ($get) => in_array($get('type'), ['tools', 'spare_parts']))
                         ->required(fn ($get) => !in_array($get('type'), ['tools', 'spare_parts'])),
+                    Select::make('category')
+                        ->label('Category')
+                        ->options([
+                            'quran' => 'Quran',
+                            'hadeeth' => 'Hadeeth',
+                            'aqeedah' => 'Aqeedah',
+                            'fiqh' => 'Fiqh',
+                            'external' => 'External',
+                        ])
+                        ->hidden(fn ($get) => $get('type') !== 'finished_good')
+                        ->required(fn ($get) => $get('type') === 'finished_good')
+                        ->default('quran'),
                     TextInput::make('purchase_unit')
                         ->label('Purchase Unit')
                         ->hidden(fn($get) => $get('type') !== 'raw_material'),

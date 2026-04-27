@@ -15,6 +15,19 @@ class PaymentsTable
         return $table
             ->columns([
                 TextColumn::make('payment_number')
+                    ->label('Payment')
+                    ->description(fn ($record) => $record->partner->name)
+                    ->searchable(),
+                TextColumn::make('amount')
+                    ->label('Amount')
+                    ->formatStateUsing(function ($state, $record) {
+                        $prefix = $record->direction === 'inbound' ? '+' : '-';
+                        return $prefix . number_format($state, 2);
+                    })
+                    ->description(fn ($record) => 'via ' . ucfirst($record->method))
+                    ->color(fn ($record) => $record->direction === 'inbound' ? 'success' : 'danger')
+                    ->weight('bold')
+                    ->sortable()
                     ->searchable(),
                 TextColumn::make('transaction_type')
                     ->badge()
@@ -23,29 +36,11 @@ class PaymentsTable
                         return \App\Enums\PaymentTransactionType::tryFrom($state)?->label() ?? ucwords(str_replace('_', ' ', (string) $state));
                     })
                     ->color('primary'),
-                TextColumn::make('partner.name')
-                    ->searchable(),
-                TextColumn::make('amount')
-                    ->numeric()
-                    ->sortable(),
-                TextColumn::make('account.name')
-                    ->label('Source Account')
-                    ->toggleable(isToggledHiddenByDefault: true)
-                    ->searchable(),
-                TextColumn::make('direction')
-                    ->badge()
-                    ->color(fn($state) => $state === 'inbound' ? 'success' : 'danger')
-                    ->searchable(),
-                TextColumn::make('method')
-                    ->searchable(),
-                TextColumn::make('reference')
-                    ->searchable(),
                 TextColumn::make('voided_at')
                     ->label('Status')
                     ->badge()
                     ->formatStateUsing(fn ($state) => $state ? 'Voided' : 'Active')
-                    ->color(fn ($state) => $state ? 'gray' : 'success')
-                    ->toggleable(),
+                    ->color(fn ($state) => $state ? 'gray' : 'success'),
                 TextColumn::make('payment_date')
                     ->date()
                     ->sortable(),

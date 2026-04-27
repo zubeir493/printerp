@@ -9,7 +9,9 @@ use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Repeater\TableColumn;
 use Filament\Forms\Components\Select;
+use Filament\Forms\Components\Switch;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Group;
@@ -46,7 +48,7 @@ class SalesOrderForm
                                     ->unique(ignoreRecord: true),
                                 Select::make('partner_id')
                                     ->label('Customer')
-                                    ->relationship('partner', 'name', modifyQueryUsing: fn ($query) => $query->where('is_customer', true))
+                                    ->relationship('partner', 'name', modifyQueryUsing: fn($query) => $query->where('is_customer', true))
                                     ->searchable()
                                     ->preload()
                                     ->default(fn() => \App\Models\Partner::where('id', 1)->first()?->id)
@@ -79,23 +81,10 @@ class SalesOrderForm
                                     ->default('cash')
                                     ->required()
                                     ->live(),
-                                Select::make('payment_method')
-                                    ->label('Collection Method')
-                                    ->options([
-                                        'cash' => 'Cash',
-                                        'bank' => 'Bank Transfer',
-                                        'cheque' => 'Cheque',
-                                    ])
-                                    ->default('cash')
-                                    ->visible(fn (Get $get) => $get('payment_mode') === 'cash')
-                                    ->required(fn (Get $get) => $get('payment_mode') === 'cash'),
-                            ]),
-                        Grid::make(2)
-                            ->schema([
-                                TextInput::make('payment_reference')
-                                    ->label('Payment Reference')
-                                    ->visible(fn (Get $get) => $get('payment_mode') === 'cash')
-                                    ->helperText('Optional receipt number or POS reference for immediate cash sales.'),
+                                Toggle::make('use_file_import')
+                                    ->label('Import from Excel/CSV')
+                                    ->helperText('Toggle to use file import instead of manual entry')
+                                    ->live(),
                                 FileUpload::make('items_import_file')
                                     ->label('Import Sales Items')
                                     ->acceptedFileTypes([
@@ -104,6 +93,7 @@ class SalesOrderForm
                                         'application/vnd.ms-excel',
                                         'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
                                     ])
+                                    ->visible(fn(Get $get) => $get('use_file_import'))
                                     ->dehydrated(false)
                                     ->helperText('Headers supported: inventory_item_id or sku or name, plus quantity and unit_price.')
                                     ->afterStateUpdated(function (Set $set, Get $get, TemporaryUploadedFile | string | null $state) {
@@ -137,6 +127,7 @@ class SalesOrderForm
                         Repeater::make('salesOrderItems')
                             ->relationship('salesOrderItems')
                             ->label('Sale Items')
+                            ->visible(fn(Get $get) => !$get('use_file_import'))
                             ->table([
                                 TableColumn::make('Item')->width('220px')->alignLeft(),
                                 TableColumn::make('Qty')->alignLeft(),
@@ -147,7 +138,7 @@ class SalesOrderForm
                             ->schema([
                                 Select::make('inventory_item_id')
                                     ->label('Item')
-                                    ->relationship('inventoryItem', 'name', fn ($query) => $query->where('is_sellable', true))
+                                    ->relationship('inventoryItem', 'name', fn($query) => $query->where('is_sellable', true))
                                     ->searchable()
                                     ->preload()
                                     ->required(),
@@ -203,23 +194,87 @@ class SalesOrderForm
                                 \App\Filament\Support\Calculations::updateSubtotal($get, $set, 'salesOrderItems', 'total');
                             })
                             ->deleteAction(
-                                fn ($action) => $action->after(function (Get $get, Set $set) {
+                                fn($action) => $action->after(function (Get $get, Set $set) {
                                     \App\Filament\Support\Calculations::updateSubtotal($get, $set, 'salesOrderItems', 'subtotal');
                                     \App\Filament\Support\Calculations::updateSubtotal($get, $set, 'salesOrderItems', 'total');
                                 })
                             ),
+                            Repeater::make('payments')
+                                ->label('Payment Methods')
+                                ->table([
+                                    TableColumn::make('Method'),
+                                    TableColumn::make('Amount'),
+                                    TableColumn::make('Reference'),
+                                ])
+                                ->compact()
+                                ->schema([
+                                    Select::make('method')
+                                        ->label('Method')
+                                        ->options([
+                                            'cash' => 'Cash',
+                                            'bank' => 'Bank Transfer',
+                                            'cheque' => 'Cheque',
+                                        ])
+                                        ->required()
+                                        ->live()
+                                        ->afterStateUpdated(function ($state, Set $set, Get $get) {
+                                            // Clear bank_id when method changes from bank
+                                            if ($state !== 'bank') {
+                                                $set('bank_id', null);
+                                            }
+                                        }),
+                                    Select::make('bank_id')
+                                        ->label('Bank Account')
+                                        ->relationship('bank', 'name')
+                                        ->searchable()
+                                        ->preload()
+                                        ->visible(fn(Get $get) => $get('method') === 'bank')
+                                        ->required(fn(Get $get) => $get('method') === 'bank')
+                                        ->helperText('Select bank account for this payment'),
+                                    TextInput::make('amount')
+                                        ->label('Amount')
+                                        ->numeric()
+                                        ->prefix('₱')
+                                        ->step(0.01)
+                                        ->required()
+                                        ->rules(['min:0.01'])
+                                        ->live(onBlur: true)
+                                        ->afterStateUpdated(function (Set $set, Get $get) {
+                                            // Recalculate total paid and balance
+                                            $payments = $get('../../payments') ?? [];
+                                            $totalPaid = collect($payments)->sum('amount');
+                                            $orderTotal = $get('../../total') ?? 0;
+
+                                            $set('../../total_paid_display', $totalPaid);
+                                            $set('../../balance_display', max(0, $orderTotal - $totalPaid));
+                                        }),
+                                    TextInput::make('reference')
+                                        ->label('Reference')
+                                        ->placeholder('Receipt number, cheque number, etc.')
+                                        ->maxLength(255),
+                                ])
+                                ->columns(2)
+                                ->defaultItems(1)
+                                ->minItems(1)
+                                ->visible(fn(Get $get) => $get('payment_mode') === 'cash' && request()->routeIs('filament.admin.resources.sales-orders.create'))
+                                ->live()
+                                ->afterStateUpdated(function (Get $get, Set $set) {
+                                    // Recalculate totals when payments change
+                                    $payments = $get('payments') ?? [];
+                                    $totalPaid = collect($payments)->sum('amount');
+                                    $orderTotal = $get('total') ?? 0;
+
+                                    $set('total_paid_display', $totalPaid);
+                                    $set('balance_display', max(0, $orderTotal - $totalPaid));
+                                })
+                                ->addable()                    
+                                ->visible(fn(Get $get) => $get('payment_mode') === 'cash' && request()->routeIs('filament.admin.resources.sales-orders.create'))
+                                ->deletable(),
                     ])
                     ->columnSpan(3),
                 Section::make('Summary')
                     ->schema([
-                        Select::make('status')
-                            ->options([
-                                'draft' => 'Draft',
-                                'completed' => 'Completed',
-                                'void' => 'Void',
-                            ])
-                            ->default('draft')
-                            ->required(),
+                        Hidden::make('status')->default('completed'),
                         TextInput::make('subtotal')
                             ->numeric()
                             ->readOnly()
@@ -230,11 +285,12 @@ class SalesOrderForm
                             ->readOnly()
                             ->default(0)
                             ->suffix('Birr'),
-                        TextInput::make('paid_amount_display')
-                            ->label('Paid Amount')
+                        TextInput::make('total_paid_display')
+                            ->label('Total Paid')
                             ->dehydrated(false)
                             ->readOnly()
                             ->suffix('Birr')
+                            ->default(0)
                             ->afterStateHydrated(function (TextInput $component, $record) {
                                 $component->state($record ? $record->paid_amount : 0);
                             }),
@@ -243,6 +299,8 @@ class SalesOrderForm
                             ->dehydrated(false)
                             ->readOnly()
                             ->suffix('Birr')
+                            ->default(0)
+                            // ->color(fn (Get $get) => $get('balance_display') > 0 ? 'warning' : 'success')
                             ->afterStateHydrated(function (TextInput $component, $record) {
                                 $component->state($record ? $record->balance : 0);
                             }),

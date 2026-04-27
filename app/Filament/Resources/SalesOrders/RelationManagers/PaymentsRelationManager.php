@@ -64,17 +64,32 @@ class PaymentsRelationManager extends RelationManager
             ->columns([
                 TextColumn::make('payment.payment_number')
                     ->label('Payment #')
-                    ->searchable(),
-                TextColumn::make('payment.payment_date')
-                    ->label('Date')
-                    ->date(),
+                    ->searchable()
+                    ->weight('bold')
+                    ->color('primary')
+                    ->description(fn($record) => $record->payment->payment_date?->format('M j, Y') ?? 'No date'),
                 TextColumn::make('allocated_amount')
                     ->label('Allocated')
-                    ->suffix(' Birr'),
+                    ->suffix(' ETB')
+                    ->sortable()
+                    ->weight('bold')
+                    ->color('success'),
                 TextColumn::make('payment.method')
-                    ->label('Method'),
+                    ->label('Method')
+                    ->badge()
+                    ->color(fn($state) => match($state) {
+                        'cash' => 'success',
+                        'bank' => 'info',
+                        'cheque' => 'warning',
+                        default => 'gray',
+                    })
+                    ->formatStateUsing(fn($state) => ucfirst($state)),
                 TextColumn::make('payment.reference')
-                    ->label('Reference'),
+                    ->label('Reference')
+                    ->searchable()
+                    ->copyable()
+                    ->copyMessage('Reference copied')
+                    ->copyMessageDuration(1500),
             ])
             ->headerActions([
                 CreateAction::make()

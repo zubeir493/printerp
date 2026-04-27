@@ -49,4 +49,59 @@ class SalesOrderPaymentService
             return $payment;
         });
     }
+
+    /**
+     * Process multiple payments from SalesOrder form
+     */
+    public function processMultiplePayments(SalesOrder $salesOrder, array $paymentsData): array
+    {
+        return DB::transaction(function () use ($salesOrder, $paymentsData) {
+            $createdPayments = [];
+            $totalPayments = collect($paymentsData)->sum('amount');
+
+            // Validate total payments don't exceed order total
+            if ($totalPayments > $salesOrder->total) {
+                throw new \Exception("Total payments (₱{$totalPayments}) exceed order total (₱{$salesOrder->total})");
+            }
+
+            foreach ($paymentsData as $paymentData) {
+                if (empty($paymentData['amount']) || $paymentData['amount'] <= 0) {
+                    continue; // Skip empty payment rows
+                }
+
+                $payment = $this->createPaymentFromData($salesOrder, $paymentData);
+                
+                // Create payment allocation
+                $salesOrder->paymentAllocations()->create([
+                    'payment_id' => $payment->id,
+                    'allocated_amount' => $paymentData['amount'],
+                ]);
+
+                $createdPayments[] = $payment;
+            }
+
+            return $createdPayments;
+        });
+    }
+
+    /**
+     * Create a single payment from payment data
+     */
+    private function createPaymentFromData(SalesOrder $salesOrder, array $paymentData): Payment
+    {
+        $nextId = (Payment::max('id') ?? 0) + 1;
+        $paymentNumber = 'PAY-SO-' . str_pad($nextId, 6, '0', STR_PAD_LEFT);
+
+        return Payment::create([
+            'payment_number' => $paymentNumber,
+            'partner_id' => $salesOrder->partner_id,
+            'amount' => $paymentData['amount'],
+            'direction' => 'inbound',
+            'transaction_type' => \App\Enums\PaymentTransactionType::CUSTOMER_RECEIPT->value,
+            'method' => $paymentData['method'],
+            'bank_id' => $paymentData['bank_id'] ?? null,
+            'reference' => $paymentData['reference'] ?? 'Payment for ' . $salesOrder->order_number,
+            'payment_date' => $salesOrder->order_date,
+        ]);
+    }
 }

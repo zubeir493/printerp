@@ -17,9 +17,7 @@ use App\Filament\Resources\Accounts\AccountResource;
 use App\Filament\Resources\JournalEntries\JournalEntryResource;
 use App\Filament\Resources\PaymentAllocations\PaymentAllocationResource;
 use App\Filament\Resources\Payments\PaymentResource;
-use App\Filament\Resources\PurchaseInvoices\PurchaseInvoiceResource;
 use App\Filament\Resources\SalesOrders\SalesOrderResource;
-use App\Filament\Resources\SalesInvoices\SalesInvoiceResource;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
@@ -50,8 +48,6 @@ class FinancePanelProvider extends PanelProvider
                 AccountResource::class,
                 JournalEntryResource::class,
                 SalesOrderResource::class,
-                SalesInvoiceResource::class,
-                PurchaseInvoiceResource::class,
                 PaymentResource::class,
                 PaymentAllocationResource::class,
             ])

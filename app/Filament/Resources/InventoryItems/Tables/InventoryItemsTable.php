@@ -20,7 +20,9 @@ class InventoryItemsTable
                     ->label('Item')
                     ->description(fn($record) => $record->sku)
                     ->searchable()
-                    ->sortable(),
+                    ->sortable()
+                    ->weight('bold')
+                    ->color('primary'),
                 TextColumn::make('type')
                     ->badge()
                     ->color(fn(string $state): string => match ($state) {
@@ -30,13 +32,51 @@ class InventoryItemsTable
                         'tools' => 'warning',
                         'spare_parts' => 'primary',
                         default => 'gray',
+                    })
+                    ->formatStateUsing(fn(string $state): string => match ($state) {
+                        'raw_material' => 'Raw Material',
+                        'finished_good' => 'Finished Good',
+                        'wip' => 'WIP',
+                        'tools' => 'Tools',
+                        'spare_parts' => 'Spare Parts',
+                        default => ucfirst(str_replace('_', ' ', $state)),
                     }),
-                TextColumn::make('unit'),
+                TextColumn::make('category')
+                    ->label('Category')
+                    ->badge()
+                    ->color(fn($state) => match($state) {
+                        'printing' => 'primary',
+                        'design' => 'info',
+                        'binding' => 'warning',
+                        'finishing' => 'success',
+                        'packaging' => 'secondary',
+                        'stationery' => 'gray',
+                        'marketing' => 'danger',
+                        'other' => 'gray',
+                        default => 'gray',
+                    })
+                    ->formatStateUsing(fn($state) => match($state) {
+                        'printing' => 'Printing',
+                        'design' => 'Design',
+                        'binding' => 'Binding',
+                        'finishing' => 'Finishing',
+                        'packaging' => 'Packaging',
+                        'stationery' => 'Stationery',
+                        'marketing' => 'Marketing',
+                        'other' => 'Other',
+                        default => ucfirst($state ?? 'N/A'),
+                    })
+                    ->visible(fn($record) => $record?->type === 'finished_good'),
+                TextColumn::make('unit')
+                    ->label('Unit')
+                    ->badge()
+                    ->color('gray'),
                 TextColumn::make('price')
-                    ->label('Value / Price')
+                    ->label('Price')
                     ->money('ETB')
                     ->visible(fn() => PanelAccess::canSeeMoneyValues())
-                    ->sortable(),
+                    ->sortable()
+                    ->weight('bold'),
             ])
             ->filters([
                 \Filament\Tables\Filters\SelectFilter::make('type')
@@ -47,6 +87,19 @@ class InventoryItemsTable
                         'tools' => 'Tools',
                         'spare_parts' => 'Spare Parts',
                     ]),
+                \Filament\Tables\Filters\SelectFilter::make('category')
+                    ->label('Category')
+                    ->options([
+                        'printing' => 'Printing Services',
+                        'design' => 'Design Services',
+                        'binding' => 'Binding Services',
+                        'finishing' => 'Finishing Services',
+                        'packaging' => 'Packaging',
+                        'stationery' => 'Stationery',
+                        'marketing' => 'Marketing Materials',
+                        'other' => 'Other',
+                    ])
+                    ->query(fn($query) => $query->where('type', 'finished_good')),
             ])
             ->recordActions([
                 EditAction::make(),

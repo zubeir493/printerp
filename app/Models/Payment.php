@@ -19,6 +19,8 @@ class Payment extends Model
     protected $fillable = [
         'payment_number',
         'partner_id',
+        'job_order_id',
+        'bank_id',
         'payment_date',
         'amount',
         'direction',
@@ -42,6 +44,8 @@ class Payment extends Model
         return [
             'id' => 'integer',
             'partner_id' => 'integer',
+            'job_order_id' => 'integer',
+            'bank_id' => 'integer',
             'payment_date' => 'date',
             'amount' => 'decimal:2',
             'account_id' => 'integer',
@@ -61,11 +65,31 @@ class Payment extends Model
         return $this->belongsTo(Account::class);
     }
 
+    public function jobOrder(): BelongsTo
+    {
+        return $this->belongsTo(JobOrder::class);
+    }
+
+    public function bank(): BelongsTo
+    {
+        return $this->belongsTo(Bank::class);
+    }
+
     public function paymentAllocations(): HasMany
     {
         return $this->hasMany(PaymentAllocation::class);
     }
 
+
+    public function setCustomerPartnerIdAttribute($value)
+    {
+        $this->attributes['partner_id'] = $value;
+    }
+
+    public function setSupplierPartnerIdAttribute($value)
+    {
+        $this->attributes['partner_id'] = $value;
+    }
 
     protected static function booted()
     {

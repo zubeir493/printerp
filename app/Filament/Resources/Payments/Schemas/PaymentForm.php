@@ -4,6 +4,7 @@ namespace App\Filament\Resources\Payments\Schemas;
 
 use App\Enums\PaymentTransactionType;
 use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Section;
@@ -42,6 +43,38 @@ class PaymentForm
                             })
                             ->required()
                             ->live(),
+                        // For customer receipts
+                        Select::make('partner_id')
+                            ->label('Customer')
+                            ->relationship('partner', 'name', modifyQueryUsing: fn($query) => $query->where('is_customer', true))
+                            ->visible(fn($get) => $get('transaction_type') === PaymentTransactionType::CUSTOMER_RECEIPT->value)
+                            ->required(fn($get) => $get('transaction_type') === PaymentTransactionType::CUSTOMER_RECEIPT->value)
+                            ->searchable()
+                            ->preload()
+                            ->createOptionForm([
+                                TextInput::make('name')
+                                    ->required(),
+                                TextInput::make('phone')
+                                    ->required(),
+                                TextInput::make('address'),
+                                Hidden::make('is_customer')->default(true),
+                            ]),
+                        // For supplier payments  
+                        Select::make('partner_id')
+                            ->label('Supplier')
+                            ->relationship('partner', 'name', modifyQueryUsing: fn($query) => $query->where('is_supplier', true))
+                            ->visible(fn($get) => $get('transaction_type') === PaymentTransactionType::SUPPLIER_PAYMENT->value)
+                            ->required(fn($get) => $get('transaction_type') === PaymentTransactionType::SUPPLIER_PAYMENT->value)
+                            ->searchable()
+                            ->preload()
+                            ->createOptionForm([
+                                TextInput::make('name')
+                                    ->required(),
+                                TextInput::make('phone')
+                                    ->required(),
+                                TextInput::make('address'),
+                                Hidden::make('is_supplier')->default(true),
+                            ]),
                         TextInput::make('amount')
                             ->required()
                             ->numeric()
@@ -56,7 +89,7 @@ class PaymentForm
                                 'bank' => 'Bank Transfer',
                                 'cheque' => 'Cheque',
                             ])
-                            ->default('cash')
+                            ->default('bank')
                             ->afterStateHydrated(function (Select $component, $record) {
                                 if (! $record) {
                                     return;
@@ -68,7 +101,16 @@ class PaymentForm
                                     default => $record->method,
                                 });
                             })
-                            ->required(),
+                            ->required()
+                            ->live(),
+                        Select::make('bank_id')
+                            ->label('Bank Account')
+                            ->relationship('bank', 'name')
+                            ->searchable()
+                            ->preload()
+                            ->visible(fn(callable $get) => $get('method') === 'bank')
+                            ->required(fn(callable $get) => $get('method') === 'bank')
+                            ->helperText('Select the bank account for this payment'),
                         TextInput::make('reference')
                             ->label('Memo / Reference')
                             ->placeholder('For example: receipt number, bill number, or short note')
@@ -77,39 +119,6 @@ class PaymentForm
                     ])
                     ->columnSpanFull()
                     ->columns(2),
-                Section::make('Counterparty')
-                    ->description('Shown only for customer receipts and supplier payments.')
-                    ->schema([
-                        Select::make('partner_id')
-                            ->label(fn (callable $get) => PaymentTransactionType::tryFrom(
-                                $get('transaction_type') ?? PaymentTransactionType::CUSTOMER_RECEIPT->value
-                            )?->partnerLabel() ?? 'Counterparty')
-                            ->options(function (callable $get) {
-                                $type = PaymentTransactionType::tryFrom($get('transaction_type') ?? PaymentTransactionType::CUSTOMER_RECEIPT->value)
-                                    ?? PaymentTransactionType::CUSTOMER_RECEIPT;
-
-                                $query = \App\Models\Partner::query();
-
-                                if ($type === PaymentTransactionType::CUSTOMER_RECEIPT) {
-                                    $query->where('is_customer', true);
-                                } elseif ($type === PaymentTransactionType::SUPPLIER_PAYMENT) {
-                                    $query->where('is_supplier', true);
-                                }
-
-                                return $query->orderBy('name')->pluck('name', 'id');
-                            })
-                            ->searchable()
-                            ->required(fn (callable $get) => PaymentTransactionType::tryFrom(
-                                $get('transaction_type') ?? PaymentTransactionType::CUSTOMER_RECEIPT->value
-                            )?->requiresPartner() ?? false)
-                            ->visible(fn (callable $get) => PaymentTransactionType::tryFrom(
-                                $get('transaction_type') ?? PaymentTransactionType::CUSTOMER_RECEIPT->value
-                            )?->requiresPartner() ?? false),
-                    ])
-                    ->columnSpanFull()
-                    ->visible(fn (callable $get) => PaymentTransactionType::tryFrom(
-                        $get('transaction_type') ?? PaymentTransactionType::CUSTOMER_RECEIPT->value
-                    )?->requiresPartner() ?? false),
             ]);
     }
 }

@@ -68,17 +68,37 @@ class PaymentAllocationsRelationManager extends RelationManager
             ->columns([
                 TextColumn::make('allocatable_type')
                     ->label('Type')
-                    ->formatStateUsing(fn ($state) => str_replace('App\\Models\\', '', $state)),
+                    ->badge()
+                    ->color(fn($state) => match($state) {
+                        \App\Models\JobOrder::class => 'info',
+                        \App\Models\SalesOrder::class => 'success',
+                        \App\Models\PurchaseOrder::class => 'warning',
+                        default => 'gray',
+                    })
+                    ->formatStateUsing(fn ($state) => match($state) {
+                        \App\Models\JobOrder::class => 'Job Order',
+                        \App\Models\SalesOrder::class => 'Sales Order',
+                        \App\Models\PurchaseOrder::class => 'Purchase Order',
+                        default => str_replace('App\\Models\\', '', $state),
+                    }),
                 TextColumn::make('allocatable.id')
-                    ->label('Ref #')
+                    ->label('Reference')
+                    ->searchable()
+                    ->weight('bold')
+                    ->color('primary')
                     ->formatStateUsing(function ($record) {
                         if ($record->allocatable_type === \App\Models\JobOrder::class) return $record->allocatable->job_order_number;
                         if ($record->allocatable_type === \App\Models\SalesOrder::class) return $record->allocatable->order_number;
                         if ($record->allocatable_type === \App\Models\PurchaseOrder::class) return $record->allocatable->po_number;
                         return $record->allocatable_id;
-                    }),
+                    })
+                    ->description(fn($record) => $record->allocatable?->partner?->name),
                 TextColumn::make('allocated_amount')
-                    ->suffix(' Birr'),
+                    ->label('Allocated')
+                    ->suffix(' ETB')
+                    ->sortable()
+                    ->weight('bold')
+                    ->color('success'),
             ])
             ->headerActions([
                 CreateAction::make(),

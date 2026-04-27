@@ -5,11 +5,6 @@ namespace App\Filament\Resources\EmailLogs;
 use App\Filament\Resources\EmailLogs\Pages\ManageEmailLogs;
 use App\Models\EmailLog;
 use BackedEnum;
-use Filament\Actions\BulkActionGroup;
-use Filament\Actions\DeleteAction;
-use Filament\Actions\DeleteBulkAction;
-use Filament\Actions\EditAction;
-use Filament\Actions\ViewAction;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Textarea;
@@ -20,8 +15,11 @@ use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 
+
+
 class EmailLogResource extends Resource
 {
+    
     protected static ?string $model = EmailLog::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedEnvelope;

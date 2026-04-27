@@ -14,7 +14,25 @@ class MaterialRequest extends Model
         'required_quantity',
         'requested_quantity',
         'issued_quantity',
+        'reason',
     ];
+
+    public static function boot()
+    {
+        parent::boot();
+
+        static::saving(function ($model) {
+            if ($model->required_quantity < 0) {
+                throw new \InvalidArgumentException('Required quantity cannot be negative');
+            }
+            if ($model->requested_quantity < 0) {
+                throw new \InvalidArgumentException('Requested quantity cannot be negative');
+            }
+            if ($model->issued_quantity < 0) {
+                throw new \InvalidArgumentException('Issued quantity cannot be negative');
+            }
+        });
+    }
 
     protected function casts(): array
     {

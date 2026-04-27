@@ -24,14 +24,6 @@ class JobOrdersStatsWidget extends BaseWidget
         $completedChart = [2, 3, 1, 4, 2, 3, $completedToday];
 
         return [
-            Stat::make('Total Job Orders', $totalJobs)
-                ->description('All time orders')
-                ->descriptionIcon('heroicon-m-document-text')
-                ->color('info'),
-            Stat::make('Total Value', number_format($totalValue, 2) . ' ETB')
-                ->description('Cumulative order value')
-                ->descriptionIcon('heroicon-m-currency-dollar')
-                ->color('success'),
             Stat::make('Active Jobs', $activeJobs)
                 ->description('In design/production')
                 ->descriptionIcon('heroicon-m-cog')

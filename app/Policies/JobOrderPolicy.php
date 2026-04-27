@@ -5,7 +5,6 @@ namespace App\Policies;
 use App\Models\JobOrder;
 use App\Models\User;
 use App\UserRole;
-use Illuminate\Auth\Access\Response;
 
 class JobOrderPolicy
 {
@@ -90,9 +89,10 @@ class JobOrderPolicy
      */
     public function forceDelete(User $user, JobOrder $jobOrder): bool
     {
-        return in_array($user->role, [
-            UserRole::Admin,
-            UserRole::Operations,
+        $userRoleValue = $user->role?->value ?? $user->role;
+        return in_array($userRoleValue, [
+            UserRole::Admin->value,
+            UserRole::Operations->value,
         ]);
     }
 }

@@ -28,16 +28,50 @@ class MaterialRequestsRelationManager extends RelationManager
                     ->required(),
                 \Filament\Forms\Components\TextInput::make('required_quantity')
                     ->numeric()
-                    ->required(),
+                    ->required()
+                    ->live(),
                 \Filament\Forms\Components\TextInput::make('requested_quantity')
                     ->numeric()
                     ->required()
-                    ->default(0),
+                    ->default(0)
+                    ->live()
+                    ->afterStateUpdated(function ($state, $get, $set) {
+                        $required = (float) $get('required_quantity');
+                        $requested = (float) $state;
+                        
+                        // Clear reason if requested amount is within limits
+                        if ($requested <= $required) {
+                            $set('reason', '');
+                        }
+                    }),
                 \Filament\Forms\Components\TextInput::make('issued_quantity')
                     ->numeric()
                     ->disabled()
                     ->dehydrated(false)
                     ->default(0),
+                \Filament\Forms\Components\Textarea::make('reason')
+                    ->label('Reason for Request')
+                    ->placeholder('Please explain why this amount exceeds the required quantity...')
+                    ->required(function ($get) {
+                        $required = (float) $get('required_quantity');
+                        $requested = (float) $get('requested_quantity');
+                        return $requested > $required;
+                    })
+                    ->visible(function ($get) {
+                        $required = (float) $get('required_quantity');
+                        $requested = (float) $get('requested_quantity');
+                        return $requested > $required;
+                    })
+                    ->helperText(function ($get) {
+                        $required = (float) $get('required_quantity');
+                        $requested = (float) $get('requested_quantity');
+                        if ($requested > $required) {
+                            $excess = $requested - $required;
+                            return "Requesting " . number_format($excess, 2) . " units above required amount. Reason is mandatory.";
+                        }
+                        return null;
+                    })
+                    ->rows(3),
             ]);
     }
 

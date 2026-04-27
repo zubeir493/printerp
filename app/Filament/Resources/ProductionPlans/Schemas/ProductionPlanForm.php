@@ -8,7 +8,6 @@ use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Repeater\TableColumn;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
-use Filament\Schemas\Components\Group;
 use Filament\Schemas\Schema;
 use Filament\Schemas\Components\Section;
 
@@ -45,19 +44,14 @@ class ProductionPlanForm
                                     ->label('Qty')
                                     ->numeric()
                                     ->default(0)
-                                    ->required()
-                                    ->live()
-                                    ->afterStateUpdated(fn($set, $get) => $set('planned_rounds', (float)($get('planned_quantity') ?? 0) * (float)($get('planned_plates') ?? 0))),
+                                    ->required(),
                                 TextInput::make('planned_plates')
                                     ->label('Plates')
                                     ->numeric()
-                                    ->default(0)
-                                    ->live()
-                                    ->afterStateUpdated(fn($set, $get) => $set('planned_rounds', (float)($get('planned_quantity') ?? 0) * (float)($get('planned_plates') ?? 0))),
+                                    ->default(0),
                                 TextInput::make('planned_rounds')
                                     ->label('Rounds')
                                     ->numeric()
-                                    ->readOnly()
                                     ->default(0),
                             ])
                             ->columns(4)

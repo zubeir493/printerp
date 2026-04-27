@@ -155,11 +155,12 @@ class PurchaseOrderForm
                     ->schema([
                         Select::make('status')
                             ->options([
-                                'active' => 'Active',
+                                'draft' => 'Draft',
+                                'approved' => 'Approved',
+                                'received' => 'Received',
                                 'cancelled' => 'Cancelled',
-                                'completed' => 'Completed',
                             ])
-                            ->default('active')
+                            ->default('draft')
                             ->required(),
                         TextInput::make('subtotal')
                             ->numeric()
