@@ -44,8 +44,7 @@ class BankTransferForm
                     ->label('Transfer Amount')
                     ->required()
                     ->numeric()
-                    ->prefix('₱')
-                    ->step(0.01)
+                    ->suffix(' Birr')
                     ->rules(['min:0.01'])
                     ->helperText('Amount to transfer between banks'),
                 

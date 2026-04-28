@@ -4,6 +4,7 @@ namespace App\Filament\Resources\InventoryItems\Schemas;
 
 use App\Filament\Support\PanelAccess;
 use Filament\Forms\Components\FileUpload;
+use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
@@ -37,9 +38,7 @@ class InventoryItemForm
                         ->required()
                         ->unique(ignoreRecord: true),
                     TextInput::make('unit')
-                        ->label('Base Unit')
-                        ->hidden(fn ($get) => in_array($get('type'), ['tools', 'spare_parts']))
-                        ->required(fn ($get) => !in_array($get('type'), ['tools', 'spare_parts'])),
+                        ->label('Base Unit'),
                     Select::make('category')
                         ->label('Category')
                         ->options([
@@ -72,7 +71,7 @@ class InventoryItemForm
                         ->default(false),
                 ])->columnSpan(4)->columns(2),
                 Group::make([
-                    \Filament\Forms\Components\Placeholder::make('image_view')
+                    Placeholder::make('image_view')
                         ->label('')
                         ->visibleOn('view')
                         ->content(function ($record) {

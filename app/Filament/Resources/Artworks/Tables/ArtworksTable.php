@@ -101,22 +101,31 @@ class ArtworksTable
                         Textarea::make('message')
                     ])
                     ->action(function ($record, array $data) {
-                        // Assuming Mail facade is used to send the actual email in the future
-                        // Mail::to($data['recipient_email'])->send(new ArtworkDownloadEmail($record, $data));
+                        try {
+                            // Send the actual email
+                            \Illuminate\Support\Facades\Mail::to($data['recipient_email'])
+                                ->send(new \App\Mail\ShareArtwork($record, $data));
 
-                        \App\Models\EmailLog::create([
-                            'recipient_email' => $data['recipient_email'],
-                            'subject' => $data['subject'],
-                            'message' => $data['message'],
-                            'artwork_id' => $record->id,
-                            'sent_by' => \Illuminate\Support\Facades\Auth::id(),
-                            'sent_at' => now(),
-                        ]);
+                            \App\Models\EmailLog::create([
+                                'recipient_email' => $data['recipient_email'],
+                                'subject' => $data['subject'],
+                                'message' => $data['message'],
+                                'artwork_id' => $record->id,
+                                'sent_by' => \Illuminate\Support\Facades\Auth::id(),
+                                'sent_at' => now(),
+                            ]);
 
-                        \Filament\Notifications\Notification::make()
-                            ->title('Email sent successfully')
-                            ->success()
-                            ->send();
+                            \Filament\Notifications\Notification::make()
+                                ->title('Email sent successfully')
+                                ->success()
+                                ->send();
+                        } catch (\Exception $e) {
+                            \Filament\Notifications\Notification::make()
+                                ->title('Email Failed')
+                                ->body($e->getMessage())
+                                ->danger()
+                                ->send();
+                        }
                     }),
             ])
             ->toolbarActions([

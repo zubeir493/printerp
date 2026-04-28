@@ -8,6 +8,7 @@ use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 
 class InventoryItemsTable
@@ -79,7 +80,7 @@ class InventoryItemsTable
                     ->weight('bold'),
             ])
             ->filters([
-                \Filament\Tables\Filters\SelectFilter::make('type')
+                SelectFilter::make('type')
                     ->options([
                         'raw_material' => 'Raw Material',
                         'finished_good' => 'Finished Good',
@@ -98,8 +99,7 @@ class InventoryItemsTable
                         'stationery' => 'Stationery',
                         'marketing' => 'Marketing Materials',
                         'other' => 'Other',
-                    ])
-                    ->query(fn($query) => $query->where('type', 'finished_good')),
+                    ]),
             ])
             ->recordActions([
                 EditAction::make(),

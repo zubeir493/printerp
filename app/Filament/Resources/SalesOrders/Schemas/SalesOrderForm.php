@@ -199,112 +199,109 @@ class SalesOrderForm
                                     \App\Filament\Support\Calculations::updateSubtotal($get, $set, 'salesOrderItems', 'total');
                                 })
                             ),
-                            Repeater::make('payments')
-                                ->label('Payment Methods')
-                                ->table([
-                                    TableColumn::make('Method'),
-                                    TableColumn::make('Amount'),
-                                    TableColumn::make('Reference'),
-                                ])
-                                ->compact()
-                                ->schema([
-                                    Select::make('method')
-                                        ->label('Method')
-                                        ->options([
-                                            'cash' => 'Cash',
-                                            'bank' => 'Bank Transfer',
-                                            'cheque' => 'Cheque',
-                                        ])
-                                        ->required()
-                                        ->live()
-                                        ->afterStateUpdated(function ($state, Set $set, Get $get) {
-                                            // Clear bank_id when method changes from bank
-                                            if ($state !== 'bank') {
-                                                $set('bank_id', null);
-                                            }
-                                        }),
-                                    Select::make('bank_id')
-                                        ->label('Bank Account')
-                                        ->relationship('bank', 'name')
-                                        ->searchable()
-                                        ->preload()
-                                        ->visible(fn(Get $get) => $get('method') === 'bank')
-                                        ->required(fn(Get $get) => $get('method') === 'bank')
-                                        ->helperText('Select bank account for this payment'),
-                                    TextInput::make('amount')
-                                        ->label('Amount')
-                                        ->numeric()
-                                        ->prefix('₱')
-                                        ->step(0.01)
-                                        ->required()
-                                        ->rules(['min:0.01'])
-                                        ->live(onBlur: true)
-                                        ->afterStateUpdated(function (Set $set, Get $get) {
-                                            // Recalculate total paid and balance
-                                            $payments = $get('../../payments') ?? [];
-                                            $totalPaid = collect($payments)->sum('amount');
-                                            $orderTotal = $get('../../total') ?? 0;
+                        // Repeater::make('payments')
+                        //     ->label('Payment Methods')
+                        //     ->table([
+                        //         TableColumn::make('Method'),
+                        //         TableColumn::make('Amount'),
+                        //         TableColumn::make('Reference'),
+                        //     ])
+                        //     ->compact()
+                        //     ->schema([
+                        //         Select::make('method')
+                        //             ->label('Method')
+                        //             ->options([
+                        //                 'cash' => 'Cash',
+                        //                 'bank' => 'Bank Transfer',
+                        //                 'cheque' => 'Cheque',
+                        //             ])
+                        //             ->required()
+                        //             ->live()
+                        //             ->afterStateUpdated(function ($state, Set $set, Get $get) {
+                        //                 // Clear bank_id when method changes from bank
+                        //                 if ($state !== 'bank') {
+                        //                     $set('bank_id', null);
+                        //                 }
+                        //             }),
+                        //         Select::make('bank_id')
+                        //             ->label('Bank Account')
+                        //             ->relationship('bank', 'name')
+                        //             ->searchable()
+                        //             ->preload()
+                        //             ->visible(fn(Get $get) => $get('method') === 'bank')
+                        //             ->required(fn(Get $get) => $get('method') === 'bank')
+                        //             ->helperText('Select bank account for this payment'),
+                        //         TextInput::make('amount')
+                        //             ->label('Amount')
+                        //             ->numeric()
+                        //             ->prefix('₱')
+                        //             ->step(0.01)
+                        //             ->required()
+                        //             ->rules(['min:0.01'])
+                        //             ->live(onBlur: true)
+                        //             ->afterStateUpdated(function (Set $set, Get $get) {
+                        //                 // Recalculate total paid and balance
+                        //                 $payments = $get('../../payments') ?? [];
+                        //                 $totalPaid = collect($payments)->sum('amount');
+                        //                 $orderTotal = $get('../../total') ?? 0;
 
-                                            $set('../../total_paid_display', $totalPaid);
-                                            $set('../../balance_display', max(0, $orderTotal - $totalPaid));
-                                        }),
-                                    TextInput::make('reference')
-                                        ->label('Reference')
-                                        ->placeholder('Receipt number, cheque number, etc.')
-                                        ->maxLength(255),
-                                ])
-                                ->columns(2)
-                                ->defaultItems(1)
-                                ->minItems(1)
-                                ->visible(fn(Get $get) => $get('payment_mode') === 'cash' && request()->routeIs('filament.admin.resources.sales-orders.create'))
-                                ->live()
-                                ->afterStateUpdated(function (Get $get, Set $set) {
-                                    // Recalculate totals when payments change
-                                    $payments = $get('payments') ?? [];
-                                    $totalPaid = collect($payments)->sum('amount');
-                                    $orderTotal = $get('total') ?? 0;
+                        //                 $set('../../total_paid_display', $totalPaid);
+                        //                 $set('../../balance_display', max(0, $orderTotal - $totalPaid));
+                        //             }),
+                        //         TextInput::make('reference')
+                        //             ->label('Reference')
+                        //             ->placeholder('Receipt number, cheque number, etc.')
+                        //             ->maxLength(255),
+                        //     ])
+                        //     ->columns(2)
+                        //     ->defaultItems(1)
+                        //     ->minItems(1)
+                        //     ->visible(fn(Get $get) => $get('payment_mode') === 'cash' && request()->routeIs('filament.admin.resources.sales-orders.create'))
+                        //     ->live()
+                        //     ->afterStateUpdated(function (Get $get, Set $set) {
+                        //         // Recalculate totals when payments change
+                        //         $payments = $get('payments') ?? [];
+                        //         $totalPaid = collect($payments)->sum('amount');
+                        //         $orderTotal = $get('total') ?? 0;
 
-                                    $set('total_paid_display', $totalPaid);
-                                    $set('balance_display', max(0, $orderTotal - $totalPaid));
-                                })
-                                ->addable()                    
-                                ->visible(fn(Get $get) => $get('payment_mode') === 'cash' && request()->routeIs('filament.admin.resources.sales-orders.create'))
-                                ->deletable(),
+                        //         $set('total_paid_display', $totalPaid);
+                        //         $set('balance_display', max(0, $orderTotal - $totalPaid));
+                        //     })
+                        //     ->addable()                    
+                        //     ->visible(fn(Get $get) => $get('payment_mode') === 'cash' && request()->routeIs('filament.admin.resources.sales-orders.create'))
+                        //     ->deletable(),
                     ])
                     ->columnSpan(3),
                 Section::make('Summary')
                     ->schema([
-                        Hidden::make('status')->default('completed'),
-                        TextInput::make('subtotal')
-                            ->numeric()
+                        // Payment Info
+                        Select::make('payment_mode')
+                            ->label('Payment Type')
+                            ->options([
+                                'cash' => 'Cash Sale',
+                                'credit' => 'Credit Sale',
+                            ])
+                            ->live()
+                            ->required(),
+
+                        // Conditional Due Date Logic
+                        DatePicker::make('due_date')
+                            ->label('Payment Due Date')
+                            ->live()
+                            ->default(now())
+                            ->required(),
+
+                        // Auto-calculated displays (read-only)
+                        TextInput::make('calculated_total')
+                            ->label('Total Amount')
+                            ->formatStateUsing(
+                                fn($record) =>
+                                $record ? number_format($record->total, 2) . ' Birr' : '0.00 Birr'
+                            )
                             ->readOnly()
-                            ->default(0)
-                            ->suffix('Birr'),
-                        TextInput::make('total')
-                            ->numeric()
-                            ->readOnly()
-                            ->default(0)
-                            ->suffix('Birr'),
-                        TextInput::make('total_paid_display')
-                            ->label('Total Paid')
-                            ->dehydrated(false)
-                            ->readOnly()
-                            ->suffix('Birr')
-                            ->default(0)
-                            ->afterStateHydrated(function (TextInput $component, $record) {
-                                $component->state($record ? $record->paid_amount : 0);
-                            }),
-                        TextInput::make('balance_display')
-                            ->label('Balance')
-                            ->dehydrated(false)
-                            ->readOnly()
-                            ->suffix('Birr')
-                            ->default(0)
-                            // ->color(fn (Get $get) => $get('balance_display') > 0 ? 'warning' : 'success')
-                            ->afterStateHydrated(function (TextInput $component, $record) {
-                                $component->state($record ? $record->balance : 0);
-                            }),
-                    ]),
+                            ->dehydrated(false),
+
+                    ])
             ])
             ->columns(4);
     }

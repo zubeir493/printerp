@@ -16,6 +16,11 @@ class MachineForm
                     ->maxLength(255),
                 TextInput::make('code')
                     ->maxLength(255),
+                TextInput::make('baseline_rounds_per_week')
+                    ->label('Baseline Rounds/Week')
+                    ->numeric()
+                    ->default(0)
+                    ->helperText('Expected number of rounds per week for this machine'),
             ]);
     }
 }

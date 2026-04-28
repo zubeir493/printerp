@@ -11,8 +11,8 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('inventory_items', function (Blueprint $table) {
-            $table->decimal('price', 15, 2)->after('is_sellable')->default(0)->nullable();
+        Schema::table('purchase_orders', function (Blueprint $table) {
+            $table->date('due_date')->nullable()->after('order_date');
         });
     }
 
@@ -21,8 +21,8 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('inventory_items', function (Blueprint $table) {
-            $table->dropColumn('price');
+        Schema::table('purchase_orders', function (Blueprint $table) {
+            $table->dropColumn('due_date');
         });
     }
 };

@@ -100,6 +100,10 @@ class MaterialRequestResource extends Resource
                         'Partial' => 'warning',
                         default => 'gray',
                     }),
+                TextColumn::make('reason')
+                    ->label('Reason')
+                    ->wrap()
+                    ->searchable(),
                 TextColumn::make('requested_quantity')
                     ->label('Qty')
                     ->formatStateUsing(fn($state, $record) => "{$record->issued_quantity} / {$state}")

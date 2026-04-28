@@ -83,11 +83,6 @@ class StockAdjustmentForm
                                 }
                             })
                             ->disabled(fn($record) => $record?->status === 'posted'),
-                        TextInput::make('system_quantity')
-                            ->numeric()
-                            ->disabled()
-                            ->dehydrated()
-                            ->required(),
                         TextInput::make('adjustment_quantity')
                             ->numeric()
                             ->required()
@@ -102,6 +97,11 @@ class StockAdjustmentForm
                                 ? 'This adjustment will create negative stock. Please lower the negative quantity or correct the system quantity.'
                                 : null)
                             ->disabled(fn($record) => $record?->status === 'posted'),
+                        TextInput::make('system_quantity')
+                            ->numeric()
+                            ->disabled()
+                            ->dehydrated()
+                            ->required(),
                         TextInput::make('new_quantity')
                             ->numeric()
                             ->disabled()

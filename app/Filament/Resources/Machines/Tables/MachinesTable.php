@@ -18,6 +18,10 @@ class MachinesTable
                     ->searchable(),
                 TextColumn::make('code')
                     ->searchable(),
+                TextColumn::make('baseline_rounds_per_week')
+                    ->label('Baseline/Week')
+                    ->numeric()
+                    ->sortable(),
             ])
             ->filters([
                 //

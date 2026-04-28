@@ -162,6 +162,12 @@ class PurchaseOrderForm
                             ])
                             ->default('draft')
                             ->required(),
+                        
+                        DatePicker::make('due_date')
+                            ->label('Payment Due Date')
+                            ->default(fn() => now()->addDays(30))
+                            ->helperText('Set the payment due date for this job order')
+                            ->required(),
                         TextInput::make('subtotal')
                             ->numeric()
                             ->suffix('Birr')

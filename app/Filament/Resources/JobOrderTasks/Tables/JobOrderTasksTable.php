@@ -8,6 +8,7 @@ use App\UserRole;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
+use Filament\Forms\Components\TextInput;
 use Filament\Tables\Columns\SelectColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
@@ -130,7 +131,10 @@ class JobOrderTasksTable
                                 'inventory_item_id' => $item['inventory_item_id'],
                                 'requested_quantity' => ($item['required_quantity'] ?? 0) + ($item['reserve_quantity'] ?? 0),
                                 'paper_index' => $index,
-                            ])->toArray())
+                            ])->toArray()),
+                        TextInput::make('reason')
+                            ->label('Reason')
+                            ->required(),
                     ])
                     ->action(function (array $data, $record) {
                         foreach ($data['items'] as $item) {

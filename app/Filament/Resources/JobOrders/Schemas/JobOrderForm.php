@@ -346,14 +346,14 @@ class JobOrderForm
                         Select::make('status')
                             ->options([
                                 'draft' => 'Draft',
-                                'design' => 'Design',
-                                'production' => 'Production',
+                                'active' => 'Active',
                                 'completed' => 'Completed',
                                 'cancelled' => 'Cancelled',
                             ])
                             ->default('draft')
                             ->helperText('Status of the overall job order.')
                             ->required(),
+                            
                         FileUpload::make('cost_calc_file')
                             ->label('Cost Calculation File')
                             ->disk('s3')
@@ -362,38 +362,15 @@ class JobOrderForm
                             ->maxSize(1024)
                             ->panelAspectRatio('3:1')
                             ->downloadable()
+                            ->dehydrated() // Add this line to make the file uploader work on edit pages
                             ->required(),
-                        Toggle::make('advance_paid')
-                            ->label('Advance Paid?')
-                            ->disabled()
-                            ->dehydrated(false)
-                            ->afterStateHydrated(function (Toggle $component, $record) {
-                                if ($record) {
-                                    $hasAllocations = $record->paymentAllocations()->exists();
-                                    $component->state($hasAllocations);
-                                } else {
-                                    $component->state(false);
-                                }
-                            }),
-                        TextInput::make('advance_amount')
-                            ->label('Advance Amount')
-                            ->readOnly()
-                            ->dehydrated(false)
-                            ->numeric()
-                            ->default(0)
-                            ->suffix(' Birr')
-                            ->afterStateHydrated(function (TextInput $component, $record) {
-                                if ($record) {
-                                    $firstAllocation = $record->paymentAllocations()->orderBy('id')->first();
-                                    $component->state($firstAllocation ? $firstAllocation->allocated_amount : 0);
-                                } else {
-                                    $component->state(0);
-                                }
-                            })
-                            ->hidden(fn () => ! PanelAccess::canSeeMoneyValues())
-                            ->dehydratedWhenHidden(),
+                        
+                        DatePicker::make('due_date')
+                            ->label('Payment Due Date')
+                            ->default(fn() => now()->addDays(30))
+                            ->helperText('Set the payment due date for this job order')
+                            ->required(),
                         TextInput::make('total_price')
-                            ->label('Total')
                             ->default(0)
                             ->suffix(' Birr')
                             ->readOnly()

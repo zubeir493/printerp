@@ -42,6 +42,11 @@ class PaymentAllocation extends Model
         return $this->belongsTo(Payment::class);
     }
 
+    public function bank()
+    {
+        return $this->hasOneThrough(Bank::class, Payment::class, 'id', 'id', 'payment_id', 'bank_id');
+    }
+
     public function allocatable()
     {
         return $this->morphTo();

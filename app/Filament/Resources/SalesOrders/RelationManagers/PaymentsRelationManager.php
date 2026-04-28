@@ -14,6 +14,7 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Schemas\Schema;
+use Filament\Tables\Columns\Summarizers\Sum;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Support\Facades\DB;
@@ -43,14 +44,30 @@ class PaymentsRelationManager extends RelationManager
                         return max(0, $owner->total - ($owner->paid_amount - $currentAllocation));
                     }),
                 Select::make('method')
+                    ->label('Paid Via')
                     ->options([
                         'cash' => 'Cash',
                         'bank' => 'Bank Transfer',
                         'cheque' => 'Cheque',
                     ])
-                    ->required(),
+                    ->default('bank')
+                    ->required()
+                    ->live(),
+
+                Select::make('bank_id')
+                    ->label('Bank Account')
+                    ->options(fn() => \App\Models\Bank::pluck('name', 'id'))
+                    ->searchable()
+                    ->preload()
+                    ->visible(fn(callable $get) => $get('method') === 'bank')
+                    ->required(fn(callable $get) => $get('method') === 'bank')
+                    ->helperText('Select the bank account for this payment'),
+
                 TextInput::make('reference')
-                    ->maxLength(255),
+                    ->label('Memo / Reference')
+                    ->maxLength(255)
+                    ->placeholder('For example: receipt number, bill number, or short note')
+                    ->helperText('Use this field for later lookup and audit reference.'),
                 DatePicker::make('payment_date')
                     ->default(now())
                     ->required(),
@@ -68,12 +85,6 @@ class PaymentsRelationManager extends RelationManager
                     ->weight('bold')
                     ->color('primary')
                     ->description(fn($record) => $record->payment->payment_date?->format('M j, Y') ?? 'No date'),
-                TextColumn::make('allocated_amount')
-                    ->label('Allocated')
-                    ->suffix(' ETB')
-                    ->sortable()
-                    ->weight('bold')
-                    ->color('success'),
                 TextColumn::make('payment.method')
                     ->label('Method')
                     ->badge()
@@ -90,6 +101,25 @@ class PaymentsRelationManager extends RelationManager
                     ->copyable()
                     ->copyMessage('Reference copied')
                     ->copyMessageDuration(1500),
+                TextColumn::make('payment.payment_date')
+                    ->label('Date')
+                    ->date(),
+                TextColumn::make('allocated_amount')
+                    ->label('Allocated')
+                    ->suffix(' Birr')
+                    ->sortable()
+                    ->weight('bold')
+                    ->color('success')
+                    ->summarize(
+                        Sum::make()
+                            ->label('Payment Summary')
+                            ->formatStateUsing(function ($state) {
+                                $owner = $this->getOwnerRecord();
+                                $allocated = $state ?? 0;
+                                $total = $owner->subtotal ?? 0;
+                                return "{$allocated}/{$total} Birr";
+                            })
+                    ),
             ])
             ->headerActions([
                 CreateAction::make()
@@ -106,6 +136,7 @@ class PaymentsRelationManager extends RelationManager
                                 'direction' => 'inbound',
                                 'transaction_type' => \App\Enums\PaymentTransactionType::CUSTOMER_RECEIPT->value,
                                 'method' => $data['method'],
+                                'bank_id' => $data['bank_id'] ?? null,
                                 'reference' => $data['reference'] ?? null,
                                 'payment_date' => $data['payment_date'],
                             ]);

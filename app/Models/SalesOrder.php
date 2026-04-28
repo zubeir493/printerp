@@ -15,6 +15,7 @@ class SalesOrder extends Model
         'warehouse_id',
         'partner_id',
         'order_date',
+        'due_date',
         'payment_mode',
         'payment_method',
         'payment_reference',
@@ -30,6 +31,7 @@ class SalesOrder extends Model
             'warehouse_id' => 'integer',
             'partner_id' => 'integer',
             'order_date' => 'date',
+            'due_date' => 'date',
             'subtotal' => 'decimal:2',
             'total' => 'decimal:2',
         ];

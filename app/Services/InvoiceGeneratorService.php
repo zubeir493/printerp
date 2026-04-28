@@ -6,10 +6,12 @@ use App\Models\Payment;
 use App\Models\SalesOrder;
 use App\Models\JobOrder;
 use App\Models\PurchaseOrder;
+use App\Models\Invoice;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\URL;
 use Carbon\Carbon;
 
 class InvoiceGeneratorService
@@ -34,7 +36,7 @@ class InvoiceGeneratorService
         $invoiceData = [
             'invoice_number' => $invoiceNumber,
             'invoice_date' => Carbon::now()->format('Y-m-d'),
-            'due_date' => Carbon::now()->addDays(30)->format('Y-m-d'),
+            'due_date' => $order->due_date ? $order->due_date->format('Y-m-d') : Carbon::now()->addDays(30)->format('Y-m-d'),
             'order' => $order,
             'items' => $order->salesOrderItems,
             'payments' => $order->paymentAllocations,
@@ -42,7 +44,7 @@ class InvoiceGeneratorService
             'tax_calculations' => $taxCalculations,
             'subtotal' => $order->subtotal,
             'tax_amount' => $taxCalculations['total_tax'],
-            'total_amount' => $order->total + $taxCalculations['total_tax'],
+            'total_amount' => $order->subtotal + $taxCalculations['total_tax'],
             'balance_due' => $order->balance,
             'status' => $this->getInvoiceStatus($order),
             'options' => array_merge([
@@ -52,18 +54,44 @@ class InvoiceGeneratorService
             ], $options)
         ];
 
-        $pdf = Pdf::loadView('invoices.sales-order', $invoiceData);
+        $pdf = Pdf::loadView('invoices.sales-order', ['invoiceData' => $invoiceData])
+                ->setPaper('a4')
+                ->setOption('defaultFont', 'Arial')
+                ->setOption('fontDir', public_path('fonts'))
+                ->setOption('fontCache', public_path('fonts'))
+                ->setOption('isRemoteEnabled', true);
         
         $filename = "invoice-{$invoiceNumber}.pdf";
         $path = "invoices/{$filename}";
         
         Storage::disk('public')->put($path, $pdf->output());
 
+        // Save invoice to database
+        $invoice = Invoice::create([
+            'invoice_number' => $invoiceNumber,
+            'invoice_type' => 'sales',
+            'order_id' => $order->id,
+            'order_type' => 'sales_order',
+            'partner_id' => $order->partner_id,
+            'invoice_date' => Carbon::now(),
+            'due_date' => $order->due_date ?: Carbon::now()->addDays(30),
+            'subtotal' => $order->subtotal,
+            'tax_amount' => $taxCalculations['total_tax'],
+            'total_amount' => $order->subtotal + $taxCalculations['total_tax'],
+            'balance_due' => $order->balance,
+            'status' => 'sent',
+            'filename' => $filename,
+            'file_path' => $path,
+            'tax_calculations' => $taxCalculations,
+            'options' => $options,
+        ]);
+
         return [
             'filename' => $filename,
             'path' => $path,
             'invoice_data' => $invoiceData,
-            'pdf' => $pdf
+            'pdf' => $pdf,
+            'invoice' => $invoice,
         ];
     }
 
@@ -86,7 +114,12 @@ class InvoiceGeneratorService
             ], $options)
         ];
 
-        $pdf = Pdf::loadView('invoices.payment-receipt', $receiptData);
+        $pdf = Pdf::loadView('invoices.payment-receipt', $receiptData)
+                ->setPaper('a4')
+                ->setOption('defaultFont', 'Arial')
+                ->setOption('fontDir', public_path('fonts'))
+                ->setOption('fontCache', public_path('fonts'))
+                ->setOption('isRemoteEnabled', true);
         
         $filename = "receipt-{$receiptNumber}.pdf";
         $path = "receipts/{$filename}";
@@ -112,7 +145,7 @@ class InvoiceGeneratorService
         $invoiceData = [
             'invoice_number' => $invoiceNumber,
             'invoice_date' => Carbon::now()->format('Y-m-d'),
-            'due_date' => Carbon::now()->addDays(30)->format('Y-m-d'),
+            'due_date' => $order->due_date ? $order->due_date->format('Y-m-d') : Carbon::now()->addDays(30)->format('Y-m-d'),
             'order' => $order,
             'items' => $order->purchaseOrderItems,
             'payments' => $order->paymentAllocations,
@@ -130,18 +163,44 @@ class InvoiceGeneratorService
             ], $options)
         ];
 
-        $pdf = Pdf::loadView('invoices.purchase-order', $invoiceData);
+        $pdf = Pdf::loadView('invoices.purchase-order', ['invoiceData' => $invoiceData])
+                ->setPaper('a4')
+                ->setOption('defaultFont', 'Arial')
+                ->setOption('fontDir', public_path('fonts'))
+                ->setOption('fontCache', public_path('fonts'))
+                ->setOption('isRemoteEnabled', true);
         
         $filename = "purchase-invoice-{$invoiceNumber}.pdf";
         $path = "invoices/{$filename}";
         
         Storage::disk('public')->put($path, $pdf->output());
 
+        // Save invoice to database
+        $invoice = Invoice::create([
+            'invoice_number' => $invoiceNumber,
+            'invoice_type' => 'purchase',
+            'order_id' => $order->id,
+            'order_type' => 'purchase_order',
+            'partner_id' => $order->partner_id,
+            'invoice_date' => Carbon::now(),
+            'due_date' => $order->due_date ?: Carbon::now()->addDays(30),
+            'subtotal' => $order->subtotal,
+            'tax_amount' => $taxCalculations['total_tax'],
+            'total_amount' => $order->subtotal + $taxCalculations['total_tax'],
+            'balance_due' => $order->balance,
+            'status' => 'sent',
+            'filename' => $filename,
+            'file_path' => $path,
+            'tax_calculations' => $taxCalculations,
+            'options' => $options,
+        ]);
+
         return [
             'filename' => $filename,
             'path' => $path,
             'invoice_data' => $invoiceData,
-            'pdf' => $pdf
+            'pdf' => $pdf,
+            'invoice' => $invoice,
         ];
     }
 
@@ -151,40 +210,90 @@ class InvoiceGeneratorService
     public function generateFromJobOrder(JobOrder $order, array $options = []): array
     {
         $invoiceNumber = $this->generateInvoiceNumber('SERVICE');
+        $jobOrderItems = $order->jobOrderTasks()->get();
         $taxCalculations = $this->calculateServiceTaxes($order);
+        
+        $items = $jobOrderItems->map(function ($task) use ($order) {
+            $quantity = $task->quantity ?: 1;
+            $taskCost = $task->task_cost ?: 0;
+
+            return [
+                'job_order_number' => $order->job_order_number,
+                'service_name' => $task->name,
+                'quantity' => $quantity,
+                'unit_price' => (float) $taskCost,
+                'total' => (float) $taskCost, // task_cost is already the total, not unit price
+            ];
+        })->all();
+        
+        // Calculate actual subtotal from tasks
+        $actualSubtotal = collect($items)->sum('total');
         
         $invoiceData = [
             'invoice_number' => $invoiceNumber,
             'invoice_date' => Carbon::now()->format('Y-m-d'),
-            'due_date' => Carbon::now()->addDays(15)->format('Y-m-d'),
+            'due_date' => $order->due_date ? $order->due_date->format('Y-m-d') : Carbon::now()->addDays(30)->format('Y-m-d'),
             'order' => $order,
-            'items' => $order->jobOrderItems,
+            'items' => $items,
             'payments' => $order->paymentAllocations,
             'company_info' => $this->companyInfo,
+            'customer_info' => [
+                'name' => $order->partner->name ?? 'Valued Customer',
+                'address' => $order->partner->address ?? '',
+                'phone' => $order->partner->phone ?? '',
+                'email' => $order->partner->email ?? '',
+            ],
             'tax_calculations' => $taxCalculations,
-            'subtotal' => $order->total,
+            'subtotal' => $actualSubtotal,
             'tax_amount' => $taxCalculations['total_tax'],
-            'total_amount' => $order->total + $taxCalculations['total_tax'],
+            'total_amount' => $actualSubtotal + $taxCalculations['total_tax'],
             'balance_due' => $order->balance,
             'status' => $this->getInvoiceStatus($order),
+            'notes' => $order->remarks ?? null,
             'options' => array_merge([
                 'show_service_details' => true,
                 'show_tax_breakdown' => true,
             ], $options)
         ];
 
-        $pdf = Pdf::loadView('invoices.job-order', $invoiceData);
+        $pdf = Pdf::loadView('invoices.job-order', ['invoiceData' => $invoiceData])
+                ->setPaper('a4')
+                ->setOption('defaultFont', 'Arial')
+                ->setOption('fontDir', public_path('fonts'))
+                ->setOption('fontCache', public_path('fonts'))
+                ->setOption('isRemoteEnabled', true);
         
         $filename = "service-invoice-{$invoiceNumber}.pdf";
         $path = "invoices/{$filename}";
         
         Storage::disk('public')->put($path, $pdf->output());
 
+        // Save invoice to database
+        $invoice = Invoice::create([
+            'invoice_number' => $invoiceNumber,
+            'invoice_type' => 'service',
+            'order_id' => $order->id,
+            'order_type' => 'job_order',
+            'partner_id' => $order->partner_id,
+            'invoice_date' => Carbon::now(),
+            'due_date' => $order->due_date ?: Carbon::now()->addDays(15),
+            'subtotal' => $order->total_price,
+            'tax_amount' => $taxCalculations['total_tax'],
+            'total_amount' => $order->total_price + $taxCalculations['total_tax'],
+            'balance_due' => $order->balance,
+            'status' => 'sent',
+            'filename' => $filename,
+            'file_path' => $path,
+            'tax_calculations' => $taxCalculations,
+            'options' => $options,
+        ]);
+
         return [
             'filename' => $filename,
             'path' => $path,
             'invoice_data' => $invoiceData,
-            'pdf' => $pdf
+            'pdf' => $pdf,
+            'invoice' => $invoice,
         ];
     }
 
@@ -214,7 +323,7 @@ class InvoiceGeneratorService
         $invoiceData = [
             'invoice_number' => $invoiceNumber,
             'invoice_date' => Carbon::now()->format('Y-m-d'),
-            'due_date' => Carbon::now()->addDays(30)->format('Y-m-d'),
+            'due_date' => $order->due_date ? $order->due_date->format('Y-m-d') : Carbon::now()->addDays(30)->format('Y-m-d'),
             'orders' => $orders,
             'items' => $allItems,
             'company_info' => $this->companyInfo,
@@ -228,7 +337,12 @@ class InvoiceGeneratorService
             ], $options)
         ];
 
-        $pdf = Pdf::loadView('invoices.batch', $invoiceData);
+        $pdf = Pdf::loadView('invoices.batch', $invoiceData)
+                ->setPaper('a4')
+                ->setOption('defaultFont', 'Arial')
+                ->setOption('fontDir', public_path('fonts'))
+                ->setOption('fontCache', public_path('fonts'))
+                ->setOption('isRemoteEnabled', true);
         
         $filename = "batch-invoice-{$invoiceNumber}.pdf";
         $path = "invoices/{$filename}";
@@ -305,7 +419,7 @@ class InvoiceGeneratorService
     private function calculateServiceTaxes($order): array
     {
         // Similar to calculateTaxes but for service-specific tax rules
-        return $this->calculateTaxes($order->jobOrderItems);
+        return $this->calculateTaxes($order->jobOrderTasks()->get());
     }
 
     /**
@@ -315,7 +429,10 @@ class InvoiceGeneratorService
     {
         $taxAmount = 0;
         $breakdown = [];
-        $itemTotal = $item->quantity * $item->unit_price;
+
+        $quantity = $item->quantity ?? ($item['quantity'] ?? 1);
+        $unitPrice = $item->unit_price ?? $item['unit_price'] ?? $item->task_cost ?? 0;
+        $itemTotal = $quantity * $unitPrice;
 
         foreach ($this->taxConfig as $taxType => $rate) {
             if ($this->isTaxApplicable($item, $taxType)) {
@@ -357,13 +474,19 @@ class InvoiceGeneratorService
      */
     private function getNextSequence(string $prefix, string $year): int
     {
-        // In a real implementation, this would use a database sequence or cache
-        static $counters = [];
-        
-        $key = "{$prefix}-{$year}";
-        $counters[$key] = ($counters[$key] ?? 0) + 1;
-        
-        return $counters[$key];
+        // Get the highest sequence number for this prefix and year
+        $lastInvoice = Invoice::where('invoice_number', 'like', "{$prefix}-{$year}-%")
+            ->orderByRaw("CAST(SUBSTR(invoice_number, LENGTH('{$prefix}-{$year}-') + 1) AS INTEGER) DESC")
+            ->first();
+
+        if ($lastInvoice) {
+            // Extract the sequence number from the invoice number
+            $parts = explode('-', $lastInvoice->invoice_number);
+            $sequence = (int) end($parts);
+            return $sequence + 1;
+        }
+
+        return 1;
     }
 
     /**
@@ -417,7 +540,18 @@ class InvoiceGeneratorService
     {
         $disk = config('invoice.storage.disk', 'public');
         $path = config('invoice.storage.path', 'invoices');
-        return Storage::disk($disk)->url("{$path}/{$filename}");
+        
+        // For public disk, generate direct URL to storage/app/public directory
+        if ($disk === 'public') {
+            // Remove 'storage' from the path since public disk serves from storage/app/public
+            $publicPath = str_replace('storage/', '', $path);
+            return url("/{$publicPath}/{$filename}");
+        }
+        
+        // For other disks, use storage URL
+        $url = Storage::disk($disk)->url("{$path}/{$filename}");
+        
+        return $url;
     }
 
     /**

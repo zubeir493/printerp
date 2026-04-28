@@ -77,6 +77,13 @@
         
         <p>Please find attached your {{ strtolower($options['subject_prefix']) }} document for your records.</p>
         
+        @if(isset($invoiceData['invoice_data']['message']) && !empty($invoiceData['invoice_data']['message']))
+        <div style="background: #e3f2fd; padding: 15px; border-radius: 6px; margin: 15px 0; border-left: 4px solid #2196f3;">
+            <strong>Message:</strong><br>
+            {{ $invoiceData['invoice_data']['message'] }}
+        </div>
+        @endif
+        
         @if(isset($invoiceData['invoice_data']))
         <div class="invoice-details">
             <h3>Invoice Details</h3>

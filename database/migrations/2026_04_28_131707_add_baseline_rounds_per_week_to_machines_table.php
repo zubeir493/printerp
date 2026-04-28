@@ -11,8 +11,8 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('inventory_items', function (Blueprint $table) {
-            $table->decimal('price', 15, 2)->after('is_sellable')->default(0)->nullable();
+        Schema::table('machines', function (Blueprint $table) {
+            $table->integer('baseline_rounds_per_week')->nullable()->default(0)->after('code');
         });
     }
 
@@ -21,8 +21,8 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('inventory_items', function (Blueprint $table) {
-            $table->dropColumn('price');
+        Schema::table('machines', function (Blueprint $table) {
+            $table->dropColumn('baseline_rounds_per_week');
         });
     }
 };

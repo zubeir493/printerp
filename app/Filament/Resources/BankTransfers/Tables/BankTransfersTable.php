@@ -27,19 +27,13 @@ class BankTransfersTable
                     ->copyMessageDuration(1500),
                 TextColumn::make('fromBank.name')
                     ->label('From Bank')
-                    ->searchable()
-                    ->sortable()
-                    ->badge()
-                    ->color('primary'),
+                    ->searchable(),
                 TextColumn::make('toBank.name')
                     ->label('To Bank')
-                    ->searchable()
-                    ->sortable()
-                    ->badge()
-                    ->color('success'),
+                    ->searchable(),
                 TextColumn::make('amount')
                     ->label('Amount')
-                    ->money('PHP')
+                    ->suffix(' Birr')
                     ->sortable()
                     ->weight('bold'),
                 TextColumn::make('transfer_date')
@@ -54,15 +48,6 @@ class BankTransfersTable
                         'completed' => 'success',
                         'cancelled' => 'danger',
                     }),
-                TextColumn::make('reference')
-                    ->label('Reference')
-                    ->searchable()
-                    ->toggleable(),
-                TextColumn::make('completed_at')
-                    ->label('Completed')
-                    ->dateTime()
-                    ->sortable()
-                    ->toggleable(),
             ])
             ->filters([
                 SelectFilter::make('status')
@@ -74,10 +59,8 @@ class BankTransfersTable
                     ]),
             ])
             ->recordActions([
-                ViewAction::make(),
-                EditAction::make(),
                 ActionsAction::make('complete')
-                    ->label('Complete Transfer')
+                    ->label('Approve')
                     ->icon('heroicon-o-check-circle')
                     ->color('success')
                     ->requiresConfirmation()
@@ -88,7 +71,7 @@ class BankTransfersTable
                         $record->complete(auth()->user());
                     }),
                 ActionsAction::make('cancel')
-                    ->label('Cancel Transfer')
+                    ->label('Cancel')
                     ->icon('heroicon-o-x-circle')
                     ->color('danger')
                     ->requiresConfirmation()

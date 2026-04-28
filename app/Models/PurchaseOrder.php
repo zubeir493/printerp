@@ -21,6 +21,7 @@ class PurchaseOrder extends Model
         'po_number',
         'partner_id',
         'order_date',
+        'due_date',
         'status',
         'subtotal'
     ];
@@ -36,6 +37,7 @@ class PurchaseOrder extends Model
             'id' => 'integer',
             'partner_id' => 'integer',
             'order_date' => 'date',
+            'due_date' => 'date',
         ];
     }
 

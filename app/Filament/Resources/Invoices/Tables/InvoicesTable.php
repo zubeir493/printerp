@@ -25,6 +25,7 @@ class InvoicesTable
                     ->label('Invoice #')
                     ->searchable()
                     ->sortable()
+                    ->description(fn ($record) => 'Generated for ' . $record->partner->name)
                     ->weight('bold')
                     ->color('primary'),
                 
@@ -44,52 +45,43 @@ class InvoicesTable
                         'receipt' => 'Receipt',
                     }),
                 
-                TextColumn::make('partner.name')
-                    ->label('Customer/Supplier')
-                    ->searchable()
-                    ->sortable(),
-                
-                TextColumn::make('invoice_date')
-                    ->label('Date')
+                TextColumn::make('due_date')
+                    ->label('Due Date')
                     ->date()
-                    ->sortable(),
-                
-                TextColumn::make('total_amount')
-                    ->label('Total')
-                    ->suffix(' ETB')
                     ->sortable()
-                    ->alignEnd(),
-                
-                TextColumn::make('balance_due')
-                    ->label('Balance')
-                    ->suffix(' ETB')
-                    ->sortable()
-                    ->alignEnd()
-                    ->color(fn($record) => $record->balance_due > 0 ? 'danger' : 'success'),
+                    ->since()
+                    ->color(fn($record) => $record->due_date->isPast() && $record->status !== 'paid' ? 'danger' : null)
+                    ->description(fn($record) => $record->due_date->isPast() && $record->status !== 'paid' ? 'Overdue' : null),
                 
                 BadgeColumn::make('status')
-                    ->colors([
+                    ->label('Status')
+                    ->color(fn($state) => match ($state) {
                         'draft' => 'gray',
                         'sent' => 'info',
                         'paid' => 'success',
                         'overdue' => 'danger',
                         'cancelled' => 'warning',
-                    ])
-                    ->formatStateUsing(fn(string $state): string => match ($state) {
-                        'draft' => 'Draft',
-                        'sent' => 'Sent',
-                        'paid' => 'Paid',
-                        'overdue' => 'Overdue',
-                        'cancelled' => 'Cancelled',
-                    }),
+                        default => 'gray',
+                    })
+                    ->formatStateUsing(fn($state) => ucfirst($state)),
                 
-                IconColumn::make('emailed_at')
-                    ->label('Emailed')
-                    ->boolean()
-                    ->trueIcon('heroicon-o-check-circle')
-                    ->falseIcon('heroicon-o-x-circle')
-                    ->trueColor('success')
-                    ->falseColor('gray'),
+                TextColumn::make('payment_progress')
+                    ->label('Payment Progress')
+                    ->getStateUsing(function ($record) {
+                        $total = $record->total_amount;
+                        $paid = $total - $record->balance_due;
+                        $percentage = $total > 0 ? round(($paid / $total) * 100, 1) : 0;
+                        
+                        return "{$paid} / {$total} Birr ({$percentage}%)";
+                    })
+                    ->description(function ($record) {
+                        return $record->balance_due > 0 ? 'Balance: ' . $record->balance_due . ' Birr' : 'Fully Paid';
+                    })
+                    ->color(function ($record) {
+                        return $record->balance_due > 0 ? 'warning' : 'success';
+                    })
+                    ->sortable()
+                    ->alignEnd(),
             ])
             ->filters([
                 SelectFilter::make('invoice_type')
@@ -125,7 +117,10 @@ class InvoicesTable
                 ActionsAction::make('download')
                     ->label('Download')
                     ->icon('heroicon-o-arrow-down-tray')
-                    ->url(fn($record) => $record->file_path)
+                    ->url(function ($record) {
+                        $invoiceService = app(\App\Services\InvoiceGeneratorService::class);
+                        return $invoiceService->getInvoicePath($record->filename);
+                    })
                     ->openUrlInNewTab(),
                 
                 ActionsAction::make('resend_email')
@@ -138,9 +133,13 @@ class InvoicesTable
                             $invoiceService = app(\App\Services\InvoiceGeneratorService::class);
                             $sent = $invoiceService->sendInvoiceEmail(
                                 [
+                                    'filename' => $record->filename,
+                                    'path' => $record->file_path,
                                     'invoice_data' => [
                                         'invoice_number' => $record->invoice_number,
                                         'partner' => $record->partner,
+                                        'total' => $record->total_amount,
+                                        'due_date' => $record->due_date,
                                     ]
                                 ],
                                 $record->email_recipient
@@ -157,6 +156,64 @@ class InvoicesTable
                                 \Filament\Notifications\Notification::make()
                                     ->title('Email Failed')
                                     ->body('Failed to resend invoice')
+                                    ->danger()
+                                    ->send();
+                            }
+                        } catch (\Exception $e) {
+                            \Filament\Notifications\Notification::make()
+                                ->title('Email Failed')
+                                ->body($e->getMessage())
+                                ->danger()
+                                ->send();
+                        }
+                    }),
+                
+                ActionsAction::make('email')
+                    ->label('Email Invoice')
+                    ->icon('heroicon-o-envelope')
+                    ->color('primary')
+                    ->form([
+                        \Filament\Forms\Components\TextInput::make('email')
+                            ->label('Email Address')
+                            ->email()
+                            ->required()
+                            ->default(fn($record) => $record->partner?->email ?? $record->email_recipient)
+                            ->placeholder('Enter email address'),
+                        \Filament\Forms\Components\Textarea::make('message')
+                            ->label('Message (Optional)')
+                            ->placeholder('Add a custom message...')
+                            ->rows(3),
+                    ])
+                    ->action(function (array $data, $record) {
+                        try {
+                            $invoiceService = app(\App\Services\InvoiceGeneratorService::class);
+                            $sent = $invoiceService->sendInvoiceEmail(
+                                [
+                                    'filename' => $record->filename,
+                                    'path' => $record->file_path,
+                                    'invoice_data' => [
+                                        'invoice_number' => $record->invoice_number,
+                                        'partner' => $record->partner,
+                                        'message' => $data['message'] ?? null,
+                                    ]
+                                ],
+                                $data['email']
+                            );
+                            
+                            if ($sent) {
+                                $record->update([
+                                    'emailed_at' => now(),
+                                    'email_recipient' => $data['email'],
+                                ]);
+                                \Filament\Notifications\Notification::make()
+                                    ->title('Invoice Sent')
+                                    ->body('Invoice sent to ' . $data['email'])
+                                    ->success()
+                                    ->send();
+                            } else {
+                                \Filament\Notifications\Notification::make()
+                                    ->title('Email Failed')
+                                    ->body('Failed to send invoice')
                                     ->danger()
                                     ->send();
                             }
