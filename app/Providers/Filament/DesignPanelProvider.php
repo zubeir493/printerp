@@ -7,7 +7,10 @@ use App\Filament\Design\Widgets\DesignPanelStats;
 use App\Filament\Design\Widgets\JobOrderTaskStatusChart;
 use App\Filament\Design\Widgets\MyActiveTasksTable;
 use App\Filament\Resources\Artworks\ArtworkResource;
+use App\Filament\Resources\EmailLogs\EmailLogResource;
+use App\Filament\Resources\JobOrders\JobOrderResource;
 use App\Filament\Resources\JobOrderTasks\JobOrderTaskResource;
+use App\Filament\Resources\Partners\PartnerResource;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
@@ -36,7 +39,11 @@ class DesignPanelProvider extends PanelProvider
             ])
             ->resources([
                 ArtworkResource::class,
+                JobOrderResource::class,
                 JobOrderTaskResource::class,
+                EmailLogResource::class,
+                PartnerResource::class
+
             ])
             ->discoverPages(in: app_path('Filament/Design/Pages'), for: 'App\Filament\Design\Pages')
             ->pages([
