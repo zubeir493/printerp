@@ -6,6 +6,7 @@ use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
+use App\Filament\Support\PanelAccess;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
@@ -59,6 +60,8 @@ class SalesOrdersTable
                     ->options(\App\Models\Warehouse::orderBy('name')->pluck('name', 'id')->all()),
             ])
             ->recordActions([
+                EditAction::make()
+                    ->visible(fn () => PanelAccess::canManageSalesOrders()),
                 Action::make('invoice')
                     ->label('Invoice')
                     ->icon('heroicon-o-document-text')
@@ -146,9 +149,11 @@ class SalesOrdersTable
             ])
             ->bulkActions([
                 BulkActionGroup::make([
-                    DeleteBulkAction::make(),
+                    DeleteBulkAction::make()
+                        ->visible(fn () => PanelAccess::canManageSalesOrders()),
                     \Filament\Actions\ExportBulkAction::make()
-                        ->exporter(\App\Filament\Exports\SalesOrderExporter::class),
+                        ->exporter(\App\Filament\Exports\SalesOrderExporter::class)
+                        ->visible(fn () => PanelAccess::canManageSalesOrders()),
                 ]),
             ]);
     }

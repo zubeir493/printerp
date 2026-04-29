@@ -39,7 +39,9 @@ class EditDispatch extends EditRecord
     protected function afterSave(): void
     {
         if (empty($this->quantities)) {
+            // Delete all stock movements and dispatch items
             $this->record->dispatchItems()->delete();
+            $this->record->stockMovements()->delete();
             return;
         }
 
@@ -51,33 +53,72 @@ class EditDispatch extends EditRecord
 
             if ($qty <= 0) {
                 if (isset($existingItems[$taskId])) {
+                    // Create reversal stock movement for deleted dispatch item
+                    $this->createStockMovement($taskId, $existingItems[$taskId]->quantity, true);
                     $existingItems[$taskId]->delete();
                 }
                 continue;
             }
 
             if (isset($existingItems[$taskId])) {
+                $oldQty = $existingItems[$taskId]->quantity;
                 $existingItems[$taskId]->update(['quantity' => $qty]);
+                
+                // Create stock movement for the difference
+                $difference = $qty - $oldQty;
+                if ($difference != 0) {
+                    $this->createStockMovement($taskId, $difference);
+                }
+                
                 unset($existingItems[$taskId]); // Mark as processed
             } else {
                 $this->record->dispatchItems()->create([
                     'job_order_task_id' => $taskId,
                     'quantity' => $qty,
                 ]);
+                
+                // Create stock movement for new dispatch item
+                $this->createStockMovement($taskId, $qty);
             }
         }
 
-        // Delete any remaining items that were not in the new quantities list (if any logic requires that, 
-        // but here we iterate over submitted quantities. If a field was removed from form, it won't be in $quantities.
-        // However, the form shows ALL tasks for the Job Order. So if a task is there, it sends a value.
-        // If the user clears a value, it might send null or 0.
-        // The loop above handles 0 or null (via (int) conversion) by deleting.
-        // If a task is somehow missing from the submission but was present before, we should arguably delete it?
-        // But the form renders all tasks.
-        // Let's assume if it's not in $quantities, we don't touch it? 
-        // No, if it's not in quantities, it means the field wasn't submitted.
-        // But wait, the form is dynamic based on Job Order. 
-        // If the Job Order didn't change, the tasks are the same.
-        // So we should be good.
+        // Delete any remaining items that weren't in the new quantities
+        foreach ($existingItems as $taskId => $item) {
+            $this->createStockMovement($taskId, $item->quantity, true);
+            $item->delete();
+        }
+    }
+
+    private function createStockMovement(int $taskId, int $quantity, bool $isReversal = false): void
+    {
+        $task = \App\Models\JobOrderTask::find($taskId);
+        $productionMode = $task->jobOrder->production_mode;
+        $inventoryItem = null;
+        
+        // Determine the correct inventory item based on production mode
+        if ($productionMode === 'make_to_order') {
+            // Client Job - look for WIP item with new SKU format
+            $itemSku = 'TASK-' . $taskId;
+            $inventoryItem = \App\Models\InventoryItem::where('sku', $itemSku)->first();
+        } else {
+            // Internal Job - look for finished good (could be existing or task-specific)
+            $inventoryItem = \App\Models\InventoryItem::where('type', 'finished_good')
+                ->where('name', 'like', "%{$task->name}%")
+                ->first();
+        }
+        
+        if ($inventoryItem && $this->record->warehouse_id) {
+            $movementQuantity = $isReversal ? abs($quantity) : -$quantity;
+            
+            \App\Models\StockMovement::create([
+                'inventory_item_id' => $inventoryItem->id,
+                'warehouse_id' => $this->record->warehouse_id,
+                'type' => 'dispatch',
+                'reference_type' => \App\Models\Dispatch::class,
+                'reference_id' => $this->record->id,
+                'quantity' => $movementQuantity,
+                'movement_date' => now(),
+            ]);
+        }
     }
 }

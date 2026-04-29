@@ -361,7 +361,7 @@ class JobOrderForm
                             ->acceptedFileTypes(['application/csv', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/vnd.ms-excel'])
                             ->maxSize(1024)
                             ->panelAspectRatio('3:1')
-                            ->downloadable()
+                            ->downloadable(fn ($record) => in_array(\Filament\Facades\Filament::getCurrentPanel()?->getId(), ['admin', 'finance', 'operations']))
                             ->dehydrated() // Add this line to make the file uploader work on edit pages
                             ->required(),
                         

@@ -20,6 +20,12 @@ class PaymentResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedBanknotes;
 
+    public static function getNavigationBadge(): ?string
+    {
+        $count = static::getModel()::whereRaw('amount > (SELECT COALESCE(SUM(allocated_amount), 0) FROM payment_allocations WHERE payment_id = payments.id)')->count();
+        return $count > 0 ? (string) $count : null;
+    }
+
     public static function form(Schema $schema): Schema
     {
         return PaymentForm::configure($schema);

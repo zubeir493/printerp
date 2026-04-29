@@ -5,6 +5,7 @@ namespace App\Filament\Resources\JobOrderTasks\Schemas;
 use App\UserRole;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Hidden;
+use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Repeater\TableColumn;
 use Filament\Forms\Components\Select;
@@ -40,6 +41,17 @@ class JobOrderTaskForm
                     ->label('Cost')
                     ->numeric()
                     ->suffix(' birr'),
+                Placeholder::make('status_display')
+                    ->label('Status')
+                    ->weight('Bold')
+                    ->content(fn ($record) => match($record?->status) {
+                        'pending' => 'Pending',
+                        'design' => 'Design',
+                        'production' => 'Production',
+                        'completed' => 'Completed',
+                        'cancelled' => 'Cancelled',
+                        default => 'Pending'
+                    }),
                 Repeater::make('paper')
                     ->label('Paper used for this task')
                     ->table([
@@ -92,16 +104,6 @@ class JobOrderTaskForm
                     ->addable(false)
                     ->reorderable(false)
                     ->minItems(1),
-                Select::make('status')
-                    ->options([
-                        'pending' => 'Pending',
-                        'design' => 'Design',
-                        'production' => 'Production',
-                        'completed' => 'Completed',
-                        'cancelled' => 'Cancelled',
-                    ])
-                    ->required()
-                    ->default('pending'),
             ]);
     }
 }

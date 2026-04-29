@@ -22,6 +22,12 @@ class DispatchResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedTruck;
 
+    public static function getNavigationBadge(): ?string
+    {
+        $count = static::getModel()::whereNotIn('status', ['completed', 'cancelled'])->count();
+        return $count > 0 ? (string) $count : null;
+    }
+
     public static function form(Schema $schema): Schema
     {
         return DispatchForm::configure($schema);

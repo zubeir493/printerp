@@ -15,6 +15,11 @@ class EditJobOrder extends EditRecord
 {
     protected static string $resource = JobOrderResource::class;
 
+    public static function canAccess($record = null): bool
+    {
+        return PanelAccess::canManageJobOrders();
+    }
+
     protected function getHeaderActions(): array
     {
         return [

@@ -21,17 +21,13 @@ class PurchaseOrderItemResource extends Resource
 
     protected static ?string $navigationLabel = 'Items';
 
+    protected static ?string $navigationParentItem = 'Purchase Orders';
+
     public static function canCreate(): bool
     {
         return false;
     }
 
-    public static function getNavigationParentItem(): ?string
-    {
-        return Filament::getCurrentPanel()?->getId() === 'admin'
-            ? 'Purchase Orders'
-            : null;
-    }
 
     public static function form(Schema $schema): Schema
     {

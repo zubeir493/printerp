@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\PurchaseOrders\Tables;
 
 use App\Models\PurchaseOrder;
+use App\Filament\Support\PanelAccess;
 use Filament\Actions\Action;
 use Filament\Actions\BulkAction;
 use Filament\Actions\BulkActionGroup;
@@ -78,7 +79,8 @@ class PurchaseOrdersTable
                     ->toggle(),
             ])
             ->recordActions([
-                EditAction::make(),
+                EditAction::make()
+                    ->visible(fn () => PanelAccess::canManagePurchaseOrders()),
                 Action::make('invoice')
                     ->label('Invoice')
                     ->icon('heroicon-o-document-text')
@@ -149,9 +151,11 @@ class PurchaseOrdersTable
             ])
             ->bulkActions([
                 BulkActionGroup::make([
-                    DeleteBulkAction::make(),
+                    DeleteBulkAction::make()
+                        ->visible(fn () => PanelAccess::canManagePurchaseOrders()),
                     \Filament\Actions\ExportBulkAction::make()
                         ->exporter(\App\Filament\Exports\PurchaseOrderExporter::class)
+                        ->visible(fn () => PanelAccess::canManagePurchaseOrders())
                 ]),
             ]);
     }

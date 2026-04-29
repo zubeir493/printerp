@@ -23,6 +23,7 @@ class StockMovementResource extends Resource
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedArrowsRightLeft;
 
     protected static ?string $navigationLabel = 'Movements';
+    protected static ?string $navigationParentItem = 'Warehouses';
 
     public static function form(Schema $schema): Schema
     {
@@ -32,13 +33,6 @@ class StockMovementResource extends Resource
     public static function canCreate(): bool
     {
         return false;
-    }
-
-    public static function getNavigationParentItem(): ?string
-    {
-        return Filament::getCurrentPanel()?->getId() === 'admin'
-            ? 'Warehouses'
-            : null;
     }
 
     public static function table(Table $table): Table

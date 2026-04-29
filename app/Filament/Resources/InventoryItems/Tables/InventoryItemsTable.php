@@ -72,12 +72,6 @@ class InventoryItemsTable
                     ->label('Unit')
                     ->badge()
                     ->color('gray'),
-                TextColumn::make('price')
-                    ->label('Price')
-                    ->money('ETB')
-                    ->visible(fn() => PanelAccess::canSeeMoneyValues())
-                    ->sortable()
-                    ->weight('bold'),
             ])
             ->filters([
                 SelectFilter::make('type')

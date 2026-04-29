@@ -16,6 +16,12 @@ class GoodsReceiptResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedInboxArrowDown;
 
+    public static function getNavigationBadge(): ?string
+    {
+        $count = static::getModel()::whereNotIn('status', ['completed', 'cancelled'])->count();
+        return $count > 0 ? (string) $count : null;
+    }
+
     public static function canCreate(): bool
     {
         return false;

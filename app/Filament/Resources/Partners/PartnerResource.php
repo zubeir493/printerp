@@ -8,6 +8,7 @@ use App\Filament\Resources\Partners\Pages\ListPartners;
 use App\Filament\Resources\Partners\RelationManagers\JobOrdersRelationManager;
 use App\Filament\Resources\Partners\Schemas\PartnerForm;
 use App\Filament\Resources\Partners\Tables\PartnersTable;
+use App\Filament\Support\PanelAccess;
 use App\Models\Partner;
 use BackedEnum;
 use Filament\Resources\Resource;
@@ -20,6 +21,16 @@ class PartnerResource extends Resource
     protected static ?string $model = Partner::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedUserGroup;
+
+    public static function canCreate(): bool
+    {
+        return PanelAccess::canManagePartners();
+    }
+
+    public static function canEdit($record): bool
+    {
+        return PanelAccess::canManagePartners();
+    }
 
     public static function form(Schema $schema): Schema
     {
@@ -43,11 +54,16 @@ class PartnerResource extends Resource
 
     public static function getPages(): array
     {
-        return [
+        $pages = [
             'index' => ListPartners::route('/'),
-            'create' => CreatePartner::route('/create'),
             'view' => \App\Filament\Resources\Partners\Pages\ViewPartner::route('/{record}'),
-            'edit' => EditPartner::route('/{record}/edit'),
         ];
+
+        if (PanelAccess::canManagePartners()) {
+            $pages['create'] = CreatePartner::route('/create');
+            $pages['edit'] = EditPartner::route('/{record}/edit');
+        }
+
+        return $pages;
     }
 }

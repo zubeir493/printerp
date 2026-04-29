@@ -40,6 +40,7 @@ class StockMovementsTable
                     ->dateTime('h:i A | d M')
                     ->sortable(),
             ])
+            ->defaultSort('created_at', 'desc')
             ->filters([
                 SelectFilter::make('type')
                     ->options([

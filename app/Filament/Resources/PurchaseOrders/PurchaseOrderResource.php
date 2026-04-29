@@ -21,6 +21,22 @@ class PurchaseOrderResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedDocumentCurrencyPound;
 
+    public static function canCreate(): bool
+    {
+        return PanelAccess::canManagePurchaseOrders();
+    }
+
+    public static function canEdit($record): bool
+    {
+        return PanelAccess::canManagePurchaseOrders();
+    }
+
+    public static function getNavigationBadge(): ?string
+    {
+        $count = static::getModel()::whereNotIn('status', ['completed', 'cancelled'])->count();
+        return $count > 0 ? (string) $count : null;
+    }
+
     public static function form(Schema $schema): Schema
     {
         return PurchaseOrderForm::configure($schema);
@@ -49,12 +65,17 @@ class PurchaseOrderResource extends Resource
 
     public static function getPages(): array
     {
-        return [
+        $pages = [
             'index' => ListPurchaseOrders::route('/'),
-            'create' => CreatePurchaseOrder::route('/create'),
             'view' => \App\Filament\Resources\PurchaseOrders\Pages\ViewPurchaseOrder::route('/{record}'),
-            'edit' => EditPurchaseOrder::route('/{record}/edit'),
         ];
+
+        if (PanelAccess::canManagePurchaseOrders()) {
+            $pages['create'] = CreatePurchaseOrder::route('/create');
+            $pages['edit'] = EditPurchaseOrder::route('/{record}/edit');
+        }
+
+        return $pages;
     }
 
     public static function updateSubtotal($get, $set)

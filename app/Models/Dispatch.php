@@ -52,4 +52,10 @@ class Dispatch extends Model
     {
         return $this->hasMany(DispatchItem::class);
     }
+
+    public function stockMovements(): HasMany
+    {
+        return $this->hasMany(StockMovement::class, 'reference_id')
+            ->where('reference_type', self::class);
+    }
 }

@@ -5,6 +5,7 @@ namespace App\Filament\Resources\Partners\Tables;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
+use App\Filament\Support\PanelAccess;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
@@ -51,7 +52,8 @@ class PartnersTable
                     }),
             ])
             ->recordActions([
-                EditAction::make(),
+                EditAction::make()
+                    ->visible(fn () => PanelAccess::canManagePartners()),
             ])
             ->headerActions([
                 \Filament\Actions\ExportAction::make()
@@ -59,9 +61,11 @@ class PartnersTable
             ])
             ->bulkActions([
                 BulkActionGroup::make([
-                    DeleteBulkAction::make(),
+                    DeleteBulkAction::make()
+                        ->visible(fn () => PanelAccess::canManagePartners()),
                     \Filament\Actions\ExportBulkAction::make()
                         ->exporter(\App\Filament\Exports\PartnerExporter::class)
+                        ->visible(fn () => PanelAccess::canManagePartners())
                 ]),
             ]);
     }

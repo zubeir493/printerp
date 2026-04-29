@@ -45,13 +45,26 @@ class CreateDispatch extends CreateRecord
                 'quantity' => $qty,
             ]);
 
-            // Record stock movement (consume WIP)
+            // Record stock movement (consume WIP or Finished Goods)
             $task = \App\Models\JobOrderTask::find($taskId);
-            $wipItem = \App\Models\InventoryItem::where('sku', 'WIP-TASK-' . $taskId)->first();
+            $productionMode = $task->jobOrder->production_mode;
+            $inventoryItem = null;
             
-            if ($wipItem && $this->record->warehouse_id) {
+            // Determine the correct inventory item based on production mode
+            if ($productionMode === 'make_to_order') {
+                // Client Job - look for WIP item with new SKU format
+                $itemSku = 'TASK-' . $taskId;
+                $inventoryItem = \App\Models\InventoryItem::where('sku', $itemSku)->first();
+            } else {
+                // Internal Job - look for finished good (could be existing or task-specific)
+                $inventoryItem = \App\Models\InventoryItem::where('type', 'finished_good')
+                    ->where('name', 'like', "%{$task->name}%")
+                    ->first();
+            }
+            
+            if ($inventoryItem && $this->record->warehouse_id) {
                 \App\Models\StockMovement::create([
-                    'inventory_item_id' => $wipItem->id,
+                    'inventory_item_id' => $inventoryItem->id,
                     'warehouse_id' => $this->record->warehouse_id,
                     'type' => 'dispatch',
                     'reference_type' => \App\Models\Dispatch::class,

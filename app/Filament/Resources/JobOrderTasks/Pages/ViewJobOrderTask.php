@@ -6,6 +6,9 @@ use App\Models\User;
 use App\UserRole;
 use App\Filament\Resources\JobOrderTasks\JobOrderTaskResource;
 use App\Services\MaterialIssueService;
+use Filament\Actions;
+use Filament\Facades\Filament;
+use App\Filament\Support\PanelAccess;
 use Filament\Actions\EditAction;
 use Filament\Resources\Pages\ViewRecord;
 
@@ -16,29 +19,40 @@ class ViewJobOrderTask extends ViewRecord
     protected function getHeaderActions(): array
     {
         return [
+            \Filament\Actions\Action::make('cancel_task')
+                ->label('Cancel Task')
+                ->icon('heroicon-o-x-mark')
+                ->color('danger')
+                ->visible(fn ($record) => !in_array($record->status, ['cancelled', 'completed']))
+                ->requiresConfirmation()
+                ->modalDescription('Are you sure you want to cancel this task? This action cannot be undone.')
+                ->action(function ($record) {
+                    $record->cancel();
+                    
+                    \Filament\Notifications\Notification::make()
+                        ->title('Task Cancelled')
+                        ->body('The task has been cancelled successfully.')
+                        ->danger()
+                        ->send();
+                }),
             \Filament\Actions\Action::make('assign_designer')
                 ->label('Assign Designer')
                 ->icon('heroicon-o-user-plus')
-                ->color('primary')
-                ->visible(fn ($record) => blank($record->designer_id))
+                ->color('info')
+                ->visible(fn ($record) => blank($record->designer_id) 
+                    && !in_array($record->status, ['completed', 'cancelled'])
+                    && in_array(Filament::getCurrentPanel()?->getId(), ['admin', 'operations']))
                 ->form([
                     \Filament\Forms\Components\Select::make('designer_id')
                         ->label('Designer')
-                        ->options(fn () => User::query()
-                            ->where('role', UserRole::Design->value)
-                            ->orderBy('name')
-                            ->pluck('name', 'id'))
-                        ->searchable()
-                        ->preload()
-                        ->nullable(),
-                ])
-                ->fillForm(fn ($record) => [
-                    'designer_id' => $record->designer_id,
+                        ->options(\App\Models\User::where('role', 'designer')->pluck('name', 'id'))
+                        ->required(),
                 ])
                 ->action(function (array $data, $record) {
-                    $record->update([
-                        'designer_id' => $data['designer_id'] ?? null,
-                    ]);
+                    $record->update(['designer_id' => $data['designer_id']]);
+                    
+                    // Update status automatically
+                    $record->updateStatus();
 
                     \Filament\Notifications\Notification::make()
                         ->title(($data['designer_id'] ?? null) ? 'Designer assigned' : 'Designer unassigned')
@@ -49,45 +63,101 @@ class ViewJobOrderTask extends ViewRecord
                 ->label('Log Production')
                 ->icon('heroicon-o-archive-box-arrow-down')
                 ->color('success')
-                ->form([
-                    \Filament\Forms\Components\Select::make('warehouse_id')
-                        ->label('Warehouse')
-                        ->options(\App\Models\Warehouse::pluck('name', 'id'))
-                        ->default(fn () => \App\Models\Warehouse::where('is_default', true)->value('id'))
-                        ->required(),
-                    \Filament\Forms\Components\TextInput::make('quantity')
-                        ->label('Produced Quantity')
-                        ->numeric()
-                        ->required()
-                        ->default(fn ($record) => $record->quantity),
-                ])
+                ->visible(fn ($record) => !in_array($record->status, ['completed', 'cancelled'])
+                    && $record->materialRequests()->where('issued_quantity', '>', 0)->exists()
+                    && Filament::getCurrentPanel()?->getId() === 'production')
+                ->form(function ($record) {
+                    $productionMode = $record->jobOrder->production_mode;
+                    
+                    return [
+                        \Filament\Forms\Components\Select::make('warehouse_id')
+                            ->label('Warehouse')
+                            ->options(\App\Models\Warehouse::pluck('name', 'id'))
+                            ->default(fn () => \App\Models\Warehouse::where('is_default', true)->value('id'))
+                            ->required(),
+                        \Filament\Forms\Components\TextInput::make('quantity')
+                            ->label('Produced Quantity')
+                            ->numeric()
+                            ->required()
+                            ->default(fn ($record) => $record->quantity),
+                        // For internal jobs, allow selecting existing finished goods
+                        \Filament\Forms\Components\Select::make('existing_inventory_item_id')
+                            ->label('Select Finished Good')
+                            ->options(\App\Models\InventoryItem::where('type', 'finished_good')->pluck('name', 'id'))
+                            ->searchable()
+                            ->preload()
+                            ->visible(fn () => $productionMode === 'make_to_stock')
+                            ->helperText('Select an existing finished good or leave blank to create new'),
+                    ];
+                })
                 ->action(function (array $data, $record) {
                     try {
                         \DB::beginTransaction();
-                        $item = \App\Models\InventoryItem::firstOrCreate(
-                            ['sku' => 'WIP-TASK-' . $record->id],
-                            [
-                                'name' => "Produced - {$record->name} ({$record->jobOrder->job_order_number})",
-                                'type' => 'finished_good',
-                                'unit' => 'pcs',
-                                'is_sellable' => false,
-                                'price' => 0,
-                            ]
-                        );
+                        
+                        $productionMode = $record->jobOrder->production_mode;
+                        $item = null;
+                        $itemTypeName = '';
+                        
+                        if ($productionMode === 'make_to_order') {
+                            // Client Job - Create WIP item with improved naming
+                            $clientName = $record->jobOrder->partner->name ?? 'Unknown Client';
+                            $jobOrderType = $record->jobOrder->job_type ?? 'Unknown';
+                            $itemSku = 'TASK-' . $record->id;
+                            $itemType = 'wip';
+                            
+                            $item = \App\Models\InventoryItem::firstOrCreate(
+                                ['sku' => $itemSku],
+                                [
+                                    'name' => "{$record->name} - {$jobOrderType} - {$clientName} ({$record->jobOrder->job_order_number})",
+                                    'type' => $itemType,
+                                    'unit' => 'pcs',
+                                    'is_sellable' => false,
+                                    'price' => 0,
+                                ]
+                            );
+                            $itemTypeName = 'WIP';
+                        } else {
+                            // Internal Job - Use existing finished good or create new
+                            if (!empty($data['existing_inventory_item_id'])) {
+                                $item = \App\Models\InventoryItem::find($data['existing_inventory_item_id']);
+                            } else {
+                                // Create new finished good
+                                $itemSku = 'FG-TASK-' . $record->id;
+                                $itemType = 'finished_good';
+                                
+                                $item = \App\Models\InventoryItem::firstOrCreate(
+                                    ['sku' => $itemSku],
+                                    [
+                                        'name' => "Finished - {$record->name} ({$record->jobOrder->job_order_number})",
+                                        'type' => $itemType,
+                                        'unit' => 'pcs',
+                                        'is_sellable' => true,
+                                        'price' => 0,
+                                    ]
+                                );
+                            }
+                            $itemTypeName = 'Finished Good';
+                        }
 
-                        \App\Models\StockMovement::create([
-                            'inventory_item_id' => $item->id,
-                            'warehouse_id' => $data['warehouse_id'],
-                            'type' => 'production_output',
-                            'reference_type' => \App\Models\JobOrderTask::class,
-                            'reference_id' => $record->id,
-                            'quantity' => abs($data['quantity']),
-                            'movement_date' => now(),
-                        ]);
+                        if ($item) {
+                            \App\Models\StockMovement::create([
+                                'inventory_item_id' => $item->id,
+                                'warehouse_id' => $data['warehouse_id'],
+                                'type' => 'production_output',
+                                'reference_type' => \App\Models\JobOrderTask::class,
+                                'reference_id' => $record->id,
+                                'quantity' => abs($data['quantity']),
+                                'movement_date' => now(),
+                            ]);
+                        }
                         \DB::commit();
+
+                        // Update task status automatically
+                        $record->updateStatus();
 
                         \Filament\Notifications\Notification::make()
                             ->title('Production Logged Successfully')
+                            ->body("Added {$data['quantity']} units to {$itemTypeName}: {$item->name}")
                             ->success()
                             ->send();
                     } catch (\Exception $e) {
@@ -104,6 +174,8 @@ class ViewJobOrderTask extends ViewRecord
                 ->label('Request Materials')
                 ->icon('heroicon-o-document-plus')
                 ->color('info')
+                ->visible(fn ($record) => !in_array($record->status, ['completed', 'cancelled'])
+                    && Filament::getCurrentPanel()?->getId() === 'production')
                 ->form(fn ($record) => [
                     \Filament\Forms\Components\Repeater::make('items')
                         ->addable(false)
@@ -150,10 +222,12 @@ class ViewJobOrderTask extends ViewRecord
                 ->label('Issue Materials')
                 ->icon('heroicon-o-archive-box-arrow-down')
                 ->color('warning')
-                ->visible(fn ($record) => $record->materialRequests()
-                    ->whereColumn('issued_quantity', '<', 'requested_quantity')
-                    ->whereDoesntHave('pendingIssueApprovals', fn ($query) => $query->where('status', 'pending'))
-                    ->exists())
+                ->visible(fn ($record) => !in_array($record->status, ['completed', 'cancelled'])
+                    && $record->materialRequests()
+                        ->whereColumn('issued_quantity', '<', 'requested_quantity')
+                        ->whereDoesntHave('pendingIssueApprovals', fn ($query) => $query->where('status', 'pending'))
+                        ->exists()
+                    && in_array(Filament::getCurrentPanel()?->getId(), ['admin', 'operations', 'warehouse']))
                 ->form(fn ($record) => [
                     \Filament\Forms\Components\Select::make('warehouse_id')
                         ->label('Warehouse')
@@ -238,7 +312,8 @@ class ViewJobOrderTask extends ViewRecord
                             ->send();
                     }
                 }),
-            EditAction::make(),
+            EditAction::make()
+                ->visible(fn () => PanelAccess::canManageJobOrderTasks()),
         ];
     }
 }

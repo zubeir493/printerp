@@ -18,6 +18,11 @@ class EditPurchaseOrder extends EditRecord
 {
     protected static string $resource = PurchaseOrderResource::class;
 
+    public static function canAccess($record = null): bool
+    {
+        return PanelAccess::canManagePurchaseOrders();
+    }
+
     protected function getHeaderActions(): array
     {
         return [

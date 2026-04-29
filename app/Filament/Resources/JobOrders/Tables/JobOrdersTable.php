@@ -91,7 +91,8 @@ class JobOrdersTable
                     ->toggle(),
             ])
             ->actions([
-                EditAction::make(),
+                EditAction::make()
+                    ->visible(fn () => PanelAccess::canManageJobOrders()),
             ])
             ->recordActions([
                 \Filament\Actions\Action::make('invoice')
@@ -200,9 +201,11 @@ class JobOrdersTable
             ])
             ->bulkActions([
                 BulkActionGroup::make([
-                    DeleteBulkAction::make(),
+                    DeleteBulkAction::make()
+                        ->visible(fn () => PanelAccess::canManageJobOrders()),
                     \Filament\Actions\ExportBulkAction::make()
                         ->exporter(\App\Filament\Exports\JobOrderExporter::class)
+                        ->visible(fn () => PanelAccess::canManageJobOrders())
                 ]),
             ]);
     }

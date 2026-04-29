@@ -7,6 +7,7 @@ use App\Filament\Resources\JobOrderTasks\Pages\EditJobOrderTask;
 use App\Filament\Resources\JobOrderTasks\Pages\ListJobOrderTasks;
 use App\Filament\Resources\JobOrderTasks\Schemas\JobOrderTaskForm;
 use App\Filament\Resources\JobOrderTasks\Tables\JobOrderTasksTable;
+use App\Filament\Support\PanelAccess;
 use App\Models\JobOrderTask;
 use BackedEnum;
 use Filament\Facades\Filament;
@@ -21,20 +22,20 @@ class JobOrderTaskResource extends Resource
 
     protected static ?string $navigationLabel = 'Tasks';
 
+    protected static ?string $navigationParentItem = 'Job Orders';
+
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedBriefcase;
 
     protected static ?string $recordTitleAttribute = 'name';
 
     public static function canCreate(): bool
     {
-        return false;
+        return PanelAccess::canManageJobOrderTasks();
     }
 
-    public static function getNavigationParentItem(): ?string
+    public static function canEdit($record): bool
     {
-        return Filament::getCurrentPanel()?->getId() === 'admin'
-            ? 'Job Orders'
-            : null;
+        return PanelAccess::canManageJobOrderTasks();
     }
 
     public static function form(Schema $schema): Schema
@@ -58,11 +59,16 @@ class JobOrderTaskResource extends Resource
 
     public static function getPages(): array
     {
-        return [
+        $pages = [
             'index' => ListJobOrderTasks::route('/'),
-            'create' => CreateJobOrderTask::route('/create'),
             'view' => \App\Filament\Resources\JobOrderTasks\Pages\ViewJobOrderTask::route('/{record}'),
-            'edit' => EditJobOrderTask::route('/{record}/edit'),
         ];
+
+        if (PanelAccess::canManageJobOrderTasks()) {
+            $pages['create'] = CreateJobOrderTask::route('/create');
+            $pages['edit'] = EditJobOrderTask::route('/{record}/edit');
+        }
+
+        return $pages;
     }
 }

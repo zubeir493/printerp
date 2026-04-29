@@ -27,10 +27,16 @@ class MaterialRequestResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedArchiveBoxArrowDown;
 
-    public static function canViewAny(): bool
+    public static function getNavigationBadge(): ?string
     {
-        return PanelAccess::canAccessWarehouseSection();
+        $count = static::getModel()::whereColumn('issued_quantity', '<', 'requested_quantity')->count();
+        return $count > 0 ? (string) $count : null;
     }
+
+    // public static function canViewAny(): bool
+    // {
+    //     return PanelAccess::canAccessWarehouseSection();
+    // }
 
     public static function form(Schema $schema): Schema
     {

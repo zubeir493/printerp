@@ -21,6 +21,16 @@ class SalesOrderResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedShoppingCart;
 
+    public static function canCreate(): bool
+    {
+        return PanelAccess::canManageSalesOrders();
+    }
+
+    public static function canEdit($record): bool
+    {
+        return PanelAccess::canManageSalesOrders();
+    }
+
     public static function form(Schema $schema): Schema
     {
         return SalesOrderForm::configure($schema);
@@ -45,11 +55,16 @@ class SalesOrderResource extends Resource
 
     public static function getPages(): array
     {
-        return [
+        $pages = [
             'index' => ListSalesOrders::route('/'),
-            'create' => CreateSalesOrder::route('/create'),
             'view' => \App\Filament\Resources\SalesOrders\Pages\ViewSalesOrder::route('/{record}'),
-            'edit' => EditSalesOrder::route('/{record}/edit'),
         ];
+
+        if (PanelAccess::canManageSalesOrders()) {
+            $pages['create'] = CreateSalesOrder::route('/create');
+            $pages['edit'] = EditSalesOrder::route('/{record}/edit');
+        }
+
+        return $pages;
     }
 }

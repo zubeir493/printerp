@@ -21,6 +21,12 @@ class StockAdjustmentResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedPencilSquare;
 
+    public static function getNavigationBadge(): ?string
+    {
+        $count = static::getModel()::whereNotIn('status', ['posted', 'cancelled'])->count();
+        return $count > 0 ? (string) $count : null;
+    }
+
     public static function form(Schema $schema): Schema
     {
         return StockAdjustmentForm::configure($schema);

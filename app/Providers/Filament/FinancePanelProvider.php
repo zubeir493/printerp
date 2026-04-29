@@ -14,10 +14,19 @@ use App\Filament\Finance\Pages\ProfitLossStatementReport;
 use App\Filament\Finance\Pages\ReceivablesAgingReport;
 use App\Filament\Finance\Pages\TrialBalanceReport;
 use App\Filament\Resources\Accounts\AccountResource;
+use App\Filament\Resources\Banks\BankResource;
+use App\Filament\Resources\BankTransfers\BankTransferResource;
+use App\Filament\Resources\Invoices\InvoiceResource;
+use App\Filament\Resources\JobOrders\JobOrderResource;
+use App\Filament\Resources\JobOrderTasks\JobOrderTaskResource;
 use App\Filament\Resources\JournalEntries\JournalEntryResource;
+use App\Filament\Resources\Partners\PartnerResource;
 use App\Filament\Resources\PaymentAllocations\PaymentAllocationResource;
 use App\Filament\Resources\Payments\PaymentResource;
+use App\Filament\Resources\PurchaseOrderItems\PurchaseOrderItemResource;
+use App\Filament\Resources\PurchaseOrders\PurchaseOrderResource;
 use App\Filament\Resources\SalesOrders\SalesOrderResource;
+use App\Models\JobOrderTask;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
@@ -46,7 +55,15 @@ class FinancePanelProvider extends PanelProvider
             ])
             ->resources([
                 AccountResource::class,
+                BankResource::class,
+                BankTransferResource::class,
+                InvoiceResource::class,
+                JobOrderResource::class,
+                JobOrderTaskResource::class,
+                PartnerResource::class,
                 JournalEntryResource::class,
+                PurchaseOrderResource::class,
+                PurchaseOrderItemResource::class,
                 SalesOrderResource::class,
                 PaymentResource::class,
                 PaymentAllocationResource::class,

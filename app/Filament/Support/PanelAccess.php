@@ -30,4 +30,29 @@ class PanelAccess
     {
         return in_array(self::panelId(), ['admin', 'operations'], true);
     }
+
+    public static function canManageJobOrders(): bool
+    {
+        return in_array(self::panelId(), ['admin', 'operations'], true);
+    }
+
+    public static function canManageJobOrderTasks(): bool
+    {
+        return in_array(self::panelId(), ['admin', 'operations'], true);
+    }
+
+    public static function canManagePartners(): bool
+    {
+        return in_array(self::panelId(), ['admin', 'operations'], true);
+    }
+
+    public static function canManagePurchaseOrders(): bool
+    {
+        return in_array(self::panelId(), ['admin', 'operations'], true);
+    }
+
+    public static function canManageSalesOrders(): bool
+    {
+        return in_array(self::panelId(), ['admin', 'finance'], true);
+    }
 }

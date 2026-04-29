@@ -15,12 +15,29 @@ use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 
 class JobOrderResource extends Resource
 {
     protected static ?string $model = JobOrder::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedBriefcase;
+
+    public static function canCreate(): bool
+    {
+        return PanelAccess::canManageJobOrders();
+    }
+
+    public static function canEdit($record): bool
+    {
+        return PanelAccess::canManageJobOrders();
+    }
+
+    public static function getNavigationBadge(): ?string
+    {
+        $count = static::getModel()::whereNotIn('status', ['completed', 'cancelled'])->count();
+        return $count > 0 ? (string) $count : null;
+    }
 
     public static function form(Schema $schema): Schema
     {
@@ -51,11 +68,16 @@ class JobOrderResource extends Resource
 
     public static function getPages(): array
     {
-        return [
+        $pages = [
             'index' => ListJobOrders::route('/'),
-            'create' => CreateJobOrder::route('/create'),
             'view' => Pages\ViewJobOrder::route('/{record}'),
-            'edit' => EditJobOrder::route('/{record}/edit'),
         ];
+
+        if (PanelAccess::canManageJobOrders()) {
+            $pages['create'] = CreateJobOrder::route('/create');
+            $pages['edit'] = EditJobOrder::route('/{record}/edit');
+        }
+
+        return $pages;
     }
 }

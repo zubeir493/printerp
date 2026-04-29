@@ -4,11 +4,19 @@ namespace App\Providers\Filament;
 
 use App\Filament\Operations\Widgets\HighPriorityJobsTable;
 use App\Filament\Operations\Widgets\OperationsPanelStats;
+use App\Filament\Resources\Artworks\ArtworkResource;
+use App\Filament\Resources\Dispatches\DispatchResource;
+use App\Filament\Resources\EmailLogs\EmailLogResource;
+use App\Filament\Resources\GoodsReceipts\GoodsReceiptResource;
 use App\Filament\Resources\JobOrders\JobOrderResource;
+use App\Filament\Resources\JobOrderTasks\JobOrderTaskResource;
 use App\Filament\Resources\MaterialIssueApprovals\MaterialIssueApprovalResource;
+use App\Filament\Resources\MaterialRequests\MaterialRequestResource;
 use App\Filament\Resources\Partners\PartnerResource;
 use App\Filament\Resources\ProductionPlans\ProductionPlanResource;
+use App\Filament\Resources\ProductionReports\ProductionReportResource;
 use App\Filament\Resources\PurchaseOrders\PurchaseOrderResource;
+use App\Filament\Resources\PurchaseOrderItems\PurchaseOrderItemResource;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
@@ -36,11 +44,19 @@ class OperationsPanelProvider extends PanelProvider
                 'primary' => Color::Cyan,
             ])
             ->resources([
+                ArtworkResource::class,
+                DispatchResource::class,
+                EmailLogResource::class,
+                GoodsReceiptResource::class,
                 PartnerResource::class,
                 JobOrderResource::class,
+                JobOrderTaskResource::class,
+                MaterialRequestResource::class,
                 MaterialIssueApprovalResource::class,
                 PurchaseOrderResource::class,
+                PurchaseOrderItemResource::class,
                 ProductionPlanResource::class,
+                ProductionReportResource::class,
             ])
             ->discoverPages(in: app_path('Filament/Operations/Pages'), for: 'App\Filament\Operations\Pages')
             ->pages([

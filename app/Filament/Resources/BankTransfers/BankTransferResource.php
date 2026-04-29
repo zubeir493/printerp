@@ -18,7 +18,9 @@ class BankTransferResource extends Resource
 {
     protected static ?string $model = BankTransfer::class;
 
-    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
+    protected static ?string $navigationParentItem = 'Banks';
+
+    protected static ?string $navigationLabel = 'Transfers';
 
     public static function form(Schema $schema): Schema
     {

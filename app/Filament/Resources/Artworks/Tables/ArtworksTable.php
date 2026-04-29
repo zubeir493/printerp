@@ -84,7 +84,12 @@ class ArtworksTable
                     ->icon('heroicon-m-check-badge')
                     ->color('success')
                     ->hidden(fn($record) => $record->is_approved)
-                    ->action(fn($record) => $record->update(['is_approved' => true])),
+                    ->action(function($record) {
+                        $record->update(['is_approved' => true]);
+                        
+                        // Update task status automatically
+                        $record->jobOrderTask->updateStatus();
+                    }),
                 \Filament\Actions\Action::make('sendEmail')
                     ->label('Send Artwork')
                     ->icon('heroicon-m-envelope')

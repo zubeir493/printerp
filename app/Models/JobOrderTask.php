@@ -90,4 +90,46 @@ class JobOrderTask extends Model
     {
         return $this->hasMany(Artwork::class);
     }
+
+    /**
+     * Update task status based on current conditions
+     */
+    public function updateStatus(): void
+    {
+        // Don't update if already cancelled or completed
+        if (in_array($this->status, ['cancelled', 'completed'])) {
+            return;
+        }
+
+        $newStatus = $this->status;
+
+        // Check if should be completed
+        if ($this->produced_quantity >= $this->quantity) {
+            $newStatus = 'completed';
+        }
+        // Check if should be in production (has approved artwork)
+        elseif ($this->artworks()->where('is_approved', true)->exists()) {
+            $newStatus = 'production';
+        }
+        // Check if should be in design (has designer assigned)
+        elseif ($this->designer_id) {
+            $newStatus = 'design';
+        }
+        // Default to draft
+        else {
+            $newStatus = 'draft';
+        }
+
+        if ($this->status !== $newStatus) {
+            $this->update(['status' => $newStatus]);
+        }
+    }
+
+    /**
+     * Cancel the task
+     */
+    public function cancel(): void
+    {
+        $this->update(['status' => 'cancelled']);
+    }
 }

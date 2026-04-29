@@ -46,7 +46,13 @@ class ArtworkForm
                             ->onColor('success')
                             ->offColor('danger')
                             ->required()
-                            ->columnSpan(1),
+                            ->columnSpan(1)
+                            ->live()
+                            ->afterStateUpdated(function ($state, callable $get, callable $set, $record) {
+                                if ($record && $record->jobOrderTask) {
+                                    $record->jobOrderTask->updateStatus();
+                                }
+                            }),
                         Placeholder::make('download_link')
                             ->label('')
                             ->hidden(fn ($record) => empty($record?->filename))

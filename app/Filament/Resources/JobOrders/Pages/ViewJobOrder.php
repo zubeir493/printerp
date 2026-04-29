@@ -202,7 +202,8 @@ class ViewJobOrder extends ViewRecord
                             ->send();
                     }
                 }),
-            Actions\EditAction::make(),
+            Actions\EditAction::make()
+                ->visible(fn () => PanelAccess::canManageJobOrders()),
         ];
     }
 }
