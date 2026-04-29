@@ -64,7 +64,7 @@ class InvoiceGeneratorService
         $filename = "invoice-{$invoiceNumber}.pdf";
         $path = "invoices/{$filename}";
         
-        Storage::disk('public')->put($path, $pdf->output());
+        Storage::disk('s3')->put($path, $pdf->output());
 
         // Save invoice to database
         $invoice = Invoice::create([
@@ -124,7 +124,7 @@ class InvoiceGeneratorService
         $filename = "receipt-{$receiptNumber}.pdf";
         $path = "receipts/{$filename}";
         
-        Storage::disk('public')->put($path, $pdf->output());
+        Storage::disk('s3')->put($path, $pdf->output());
 
         return [
             'filename' => $filename,
@@ -173,7 +173,7 @@ class InvoiceGeneratorService
         $filename = "purchase-invoice-{$invoiceNumber}.pdf";
         $path = "invoices/{$filename}";
         
-        Storage::disk('public')->put($path, $pdf->output());
+        Storage::disk('s3')->put($path, $pdf->output());
 
         // Save invoice to database
         $invoice = Invoice::create([
@@ -266,7 +266,7 @@ class InvoiceGeneratorService
         $filename = "service-invoice-{$invoiceNumber}.pdf";
         $path = "invoices/{$filename}";
         
-        Storage::disk('public')->put($path, $pdf->output());
+        Storage::disk('s3')->put($path, $pdf->output());
 
         // Save invoice to database
         $invoice = Invoice::create([
@@ -347,7 +347,7 @@ class InvoiceGeneratorService
         $filename = "batch-invoice-{$invoiceNumber}.pdf";
         $path = "invoices/{$filename}";
         
-        Storage::disk('public')->put($path, $pdf->output());
+        Storage::disk('s3')->put($path, $pdf->output());
 
         return [
             'filename' => $filename,
@@ -538,20 +538,10 @@ class InvoiceGeneratorService
      */
     public function getInvoicePath(string $filename): string
     {
-        $disk = config('invoice.storage.disk', 'public');
-        $path = config('invoice.storage.path', 'invoices');
+        $path = "invoices/{$filename}";
         
-        // For public disk, generate direct URL to storage/app/public directory
-        if ($disk === 'public') {
-            // Remove 'storage' from the path since public disk serves from storage/app/public
-            $publicPath = str_replace('storage/', '', $path);
-            return url("/{$publicPath}/{$filename}");
-        }
-        
-        // For other disks, use storage URL
-        $url = Storage::disk($disk)->url("{$path}/{$filename}");
-        
-        return $url;
+        // Use temporary URL for private S3 bucket (valid for 60 minutes)
+        return \Illuminate\Support\Facades\Storage::disk('s3')->temporaryUrl($path, now()->addMinutes(60));
     }
 
     /**
@@ -559,6 +549,6 @@ class InvoiceGeneratorService
      */
     public function deleteInvoice(string $filename): bool
     {
-        return Storage::disk('public')->delete("invoices/{$filename}");
+        return Storage::disk('s3')->delete("invoices/{$filename}");
     }
 }
